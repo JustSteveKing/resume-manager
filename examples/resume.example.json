@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jsonresume/resume-schema/v1.0.0/schema.json",
+  "basics": {
+    "name": "Ada Example",
+    "label": "Senior Backend Engineer",
+    "email": "ada@example.com",
+    "url": "https://example.com",
+    "summary": "Backend engineer focused on API design, developer experience and reliable distributed systems.",
+    "location": { "city": "London", "countryCode": "GB" },
+    "profiles": [{ "network": "GitHub", "username": "ada-example", "url": "https://github.com/ada-example" }]
+  },
+  "work": [
+    {
+      "name": "Acme Corp",
+      "position": "Senior Backend Engineer",
+      "url": "https://acme.example",
+      "startDate": "2022-04",
+      "summary": "Own the public API platform.",
+      "highlights": ["Designed v2 REST API used by 3k integrators", "Cut p95 latency by 40%"]
+    },
+    {
+      "name": "Widgets Ltd",
+      "position": "Software Engineer",
+      "startDate": "2018-09",
+      "endDate": "2022-03",
+      "highlights": ["Built billing service handling £20m/yr"]
+    }
+  ],
+  "projects": [
+    { "name": "open-thing", "description": "Open source API toolkit.", "url": "https://github.com/ada-example/open-thing", "keywords": ["TypeScript", "OpenAPI"] }
+  ],
+  "skills": [
+    { "name": "Backend", "keywords": ["TypeScript", "PHP", "PostgreSQL"] },
+    { "name": "Platform", "keywords": ["AWS", "Docker", "Terraform"] }
+  ],
+  "publications": [
+    { "name": "Designing APIs people enjoy", "publisher": "Example Conf", "releaseDate": "2024-06" }
+  ],
+  "education": [
+    { "institution": "University of Example", "area": "Computer Science", "studyType": "BSc", "startDate": "2014", "endDate": "2017" }
+  ],
+  "languages": [{ "language": "English", "fluency": "Native" }]
+}

@@ -1,0 +1,8 @@
+{
+  "label": "Two-page general",
+  "description": "Full career, trimmed automatically to two pages",
+  "earlierCareerBefore": "2021",
+  "theme": "classic",
+  "targetPages": 2,
+  "fit": true
+}

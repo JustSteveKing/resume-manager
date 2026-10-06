@@ -1,0 +1,73 @@
+name: Build resume
+
+# Runs tests, validates, and exports the full resume plus every variant (PDF, HTML, JSON, text)
+# with the ATS check.
+#
+# Personal data is never committed. To build your real resume, add repository secrets:
+#   RESUME_JSON      base64 of resume.json           (base64 -i resume.json | pbcopy)
+#   RESUME_VARIANTS  base64 tar.gz of variants/      (tar czf - variants | base64 | pbcopy)
+# Without them, the workflow builds examples/ instead.
+#
+# Exported files are only uploaded (artifact, and a release on v* tags) when the repository
+# is private, so a public repo never publishes your contact details.
+
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "examples/**", "test/**", "package.json", "bun.lock", ".github/workflows/resume.yml"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - name: Install Chrome for PDF export
+        run: bunx puppeteer browsers install chrome
+
+      - run: bun run typecheck
+      - run: bun test
+
+      - name: Restore resume data
+        env:
+          RESUME_JSON: ${{ secrets.RESUME_JSON }}
+          RESUME_VARIANTS: ${{ secrets.RESUME_VARIANTS }}
+        run: |
+          if [ -n "$RESUME_JSON" ]; then
+            echo "$RESUME_JSON" | base64 -d > resume.json
+          else
+            echo "No RESUME_JSON secret; building the example resume"
+            cp examples/resume.example.json resume.json
+          fi
+          if [ -n "$RESUME_VARIANTS" ]; then
+            echo "$RESUME_VARIANTS" | base64 -d | tar xzf -
+          else
+            mkdir -p variants && cp examples/variants/*.json variants/
+          fi
+
+      - name: Validate resume
+        run: bun start validate
+
+      - name: Export
+        run: bun start export --all --format pdf,html,json,text --ats
+
+      - uses: actions/upload-artifact@v4
+        if: github.event.repository.private
+        with:
+          name: resume
+          path: dist/
+
+      - name: Attach to release
+        if: github.event.repository.private && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "Resume $GITHUB_REF_NAME" --generate-notes

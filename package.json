@@ -1,0 +1,26 @@
+{
+  "name": "resume-manager",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "@tabstack/sdk": "^2.8.6",
+    "puppeteer": "^25.12.0",
+    "unpdf": "^1.8.1",
+    "zod": "^4.6.5"
+  },
+  "bin": {
+    "resume": "src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun src/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "label": "Developer Relations",
+  "description": "Advocacy, writing and speaking first",
+  "keywords": ["Developer relations", "Developer experience", "Technical writing", "Public speaking", "Conferences", "Community", "Content", "API design", "Open source"],
+  "maxRoles": 6,
+  "maxHighlights": 3,
+  "maxPublications": 8,
+  "dropRoleSummaries": true,
+  "basics": { "label": "Developer Advocate | Technical Writer" },
+  "blocks": ["summary", "experience", "publications", "projects", "skills", "earlier", "education", "volunteer", "awards", "languages", "interests"],
+  "theme": "sidebar",
+  "targetPages": 2,
+  "fit": true
+}
