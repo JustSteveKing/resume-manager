@@ -1,10 +1,12 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { analyze, scoreRepo } from "./github/analyze.ts";
+import { analyze, scoreRepo } from "./repos/analyze.ts";
 import { accountLabel, accountsFromResume, collectAccount, type Account } from "./forges/index.ts";
 import type { GitLabClient } from "./forges/gitlab.ts";
-import { CACHE_DIR, type GitHubClient, type RepoFacts } from "./github/collect.ts";
-import { popularity, toProjects } from "./github/summarize.ts";
+import { CACHE_DIR } from "./paths.ts";
+import { type GitHubClient } from "./forges/github.ts";
+import { type RepoFacts } from "./repos/types.ts";
+import { popularity, toProjects } from "./repos/summarize.ts";
 import type { Resume } from "./schema.ts";
 import { sectionByKey, type SectionKey } from "./sections.ts";
 import { isDuplicate, refreshSources, sourceLabel } from "./sources.ts";

@@ -2,10 +2,10 @@ import { z } from "zod";
 import type { Project, Skill } from "../schema.ts";
 import { isGrounded } from "../grounding.ts";
 import { tabstack, toTabstackSchema } from "../tabstack.ts";
-import { CACHE_DIR } from "./collect.ts";
+import { CACHE_DIR } from "../paths.ts";
 import { whereHosted } from "../forges/index.ts";
-import type { GitHubAnalysis, ScoredRepo } from "./analyze.ts";
-import { forgeLabel, type RepoFacts } from "./collect.ts";
+import type { RepoAnalysis, ScoredRepo } from "./analyze.ts";
+import { forgeLabel, type RepoFacts } from "./types.ts";
 import { detectTools } from "./analyze.ts";
 
 // The "intelligence" layer: Tabstack generate turns analysed GitHub facts into resume copy.
@@ -56,10 +56,10 @@ const RULES = `Rules:
 
 const year = (iso: string) => iso.slice(0, 4);
 
-export function skillsFacts(a: GitHubAnalysis, bio?: string): string {
+export function skillsFacts(a: RepoAnalysis, bio?: string): string {
   const lines = [
     `Developer: ${a.login}${bio ? ` — bio: ${bio}` : ""}`,
-    `Repositories: ${a.stats.originals} original repos, ${a.stats.stars} stars total, ${a.stats.activeLastYear} repos active in the last year, ${a.stats.yearsOnGitHub} years publishing code.`,
+    `Repositories: ${a.stats.originals} original repos, ${a.stats.stars} stars total, ${a.stats.activeLastYear} repos active in the last year, ${a.stats.yearsActive} years publishing code.`,
     "Languages (primary language of N repos, last used):",
     ...a.languages.slice(0, 12).map((l) => `- ${l.name}: ${l.repos} repos, last used ${year(l.lastUsed)}`),
     "Frameworks and tools (from dependency manifests unless marked topic):",
@@ -107,9 +107,9 @@ const defaultGenerate: Generate = cachedGenerate();
 const fitInstructions = (head: string, body: string) => (head + body).slice(0, MAX_INSTRUCTIONS);
 
 /** The page Tabstack generate fetches for context: the developer's profile. */
-const profilePage = (a: GitHubAnalysis, url?: string) => url ?? `https://github.com/${a.login}`;
+const profilePage = (a: RepoAnalysis, url?: string) => url ?? `https://github.com/${a.login}`;
 
-export async function summarizeSkills(a: GitHubAnalysis, bio: string | undefined, generate = defaultGenerate, contextUrl?: string): Promise<SkillsSummary> {
+export async function summarizeSkills(a: RepoAnalysis, bio: string | undefined, generate = defaultGenerate, contextUrl?: string): Promise<SkillsSummary> {
   const res = await generate({
     url: profilePage(a, contextUrl),
     instructions: fitInstructions(
@@ -133,7 +133,7 @@ export function groundSkills(s: SkillsSummary, facts: string): SkillsSummary {
 }
 
 export async function writePortfolio(
-  a: GitHubAnalysis,
+  a: RepoAnalysis,
   generate = defaultGenerate,
   onProgress?: (m: string) => void,
   contextUrl?: string,
@@ -185,7 +185,7 @@ export interface GroundedProject {
 }
 
 /** Turn write-ups into JSON Resume projects, keeping only grounded claims. Falls back to facts for repos the model skipped. */
-export function toProjects(a: GitHubAnalysis, writeups: PortfolioWriteups["projects"] = []): GroundedProject[] {
+export function toProjects(a: RepoAnalysis, writeups: PortfolioWriteups["projects"] = []): GroundedProject[] {
   return a.portfolio.map((scored) => {
     const r = scored.repo;
     const facts = repoFacts(scored);
@@ -220,7 +220,7 @@ export function toProjects(a: GitHubAnalysis, writeups: PortfolioWriteups["proje
 }
 
 /** Skill groups as JSON Resume skills. Without AI, groups come straight from the analysis. */
-export function toSkills(a: GitHubAnalysis, summary?: SkillsSummary, repoNames: string[] = a.portfolio.map((p) => p.repo.name)): Skill[] {
+export function toSkills(a: RepoAnalysis, summary?: SkillsSummary, repoNames: string[] = a.portfolio.map((p) => p.repo.name)): Skill[] {
   if (summary) {
     const repos = new Set(repoNames.map((n) => n.toLowerCase().replace(/[-_]/g, " ")));
     return summary.skills

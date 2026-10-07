@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { checkBudget, claudeCost, estimateClaude, record } from "../costs.ts";
-import { CACHE_DIR } from "../github/collect.ts";
+import { CACHE_DIR } from "../paths.ts";
 import type { Resume } from "../schema.ts";
 import { tabstack, toTabstackSchema } from "../tabstack.ts";
 

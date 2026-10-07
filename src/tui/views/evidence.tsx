@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { cachedRepos, describeEvidence, evidenceMap, STATUS_TEXT, type SkillEvidence } from "../../evidence.ts";
-import type { GitHubAnalysis } from "../../github/analyze.ts";
+import type { RepoAnalysis } from "../../repos/analyze.ts";
 import type { Intent } from "../commands.ts";
 import { useKeys, useStore } from "../store.tsx";
 import { C, fit, Hints, Line, Pane, split, windowStart } from "../ui.tsx";
@@ -11,7 +11,7 @@ const COLOR: Record<SkillEvidence["status"], string> = { strong: C.ok, ok: C.tex
 /** Skill evidence map: what backs up each skill, and what's missing. */
 export function EvidenceView(props: { active: boolean; width: number; height: number; onBack: () => void; intent?: Intent }) {
   const store = useStore();
-  const [gh, setGh] = useState<GitHubAnalysis>();
+  const [gh, setGh] = useState<RepoAnalysis>();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("problems");
   const [sel, setSel] = useState(0);
   useEffect(() => {

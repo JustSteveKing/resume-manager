@@ -12,8 +12,8 @@ import { evidenceMap, skillForms, stem, supports } from "../src/evidence.ts";
 import { firstGlance } from "../src/export/ats.ts";
 import { PdfRenderer } from "../src/export/index.ts";
 import { THEMES } from "../src/export/themes.ts";
-import type { GitHubAnalysis } from "../src/github/analyze.ts";
-import { GitHubClient } from "../src/github/collect.ts";
+import type { RepoAnalysis } from "../src/repos/analyze.ts";
+import { GitHubClient } from "../src/forges/github.ts";
 import { applySuggestion, loadSuggestions, resolveSuggestion, runInbox } from "../src/inbox.ts";
 import { toResume } from "../src/importer.ts";
 import { linkedInToJsonResume, parseCsv, renderLinkedIn, splitDescription } from "../src/linkedin.ts";
@@ -118,7 +118,7 @@ describe("evidence", () => {
       publications: [{ name: "Laravel tips", releaseDate: "2024-01" }],
       skills: [{ name: "Backend", keywords: ["Laravel 11", "Redis", "Perl", "Go"] }],
     });
-    const gh = { languages: [{ name: "Go", repos: 5, weight: 5, share: 0, lastUsed: "2026-01-01T00:00:00Z" }], tools: [], portfolio: [], login: "x", stats: {} } as unknown as GitHubAnalysis;
+    const gh = { languages: [{ name: "Go", repos: 5, weight: 5, share: 0, lastUsed: "2026-01-01T00:00:00Z" }], tools: [], portfolio: [], login: "x", stats: {} } as unknown as RepoAnalysis;
     const m = Object.fromEntries(evidenceMap(r, gh, new Date("2026-06-01")).map((e) => [e.skill, e.status]));
     expect(m).toMatchObject({ "Laravel 11": "strong", Redis: "unsupported", Perl: "stale", Go: "weak" });
     expect(m.Laravel).toBeUndefined(); // listed as "Laravel 11", so not "unlisted"

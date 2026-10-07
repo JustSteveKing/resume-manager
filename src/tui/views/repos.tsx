@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { mergeSkills } from "../../commands.ts";
 import { accountLabel, accountsFromResume, type Account } from "../../forges/index.ts";
-import { saveReport, scanRepos, type ScanResult } from "../../github/index.ts";
+import { saveReport, scanRepos, type ScanResult } from "../../repos/index.ts";
 import { sectionByKey } from "../../sections.ts";
 import { openPath } from "../actions.ts";
 import { mergeItems } from "../flows.ts";
@@ -28,7 +28,7 @@ const FIELDS: FormField[] = [
   { key: "refresh", label: "Refresh cache", kind: "bool", hint: "GitHub data is cached for 24 hours" },
 ];
 
-export function GitHubView(props: { active: boolean; width: number; height: number; onBack: () => void; intent?: Intent }) {
+export function ReposView(props: { active: boolean; width: number; height: number; onBack: () => void; intent?: Intent }) {
   const store = useStore();
   const initial = accountsFromResume(store.resume);
   const [req, setReq] = useState<Req>({

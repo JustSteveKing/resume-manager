@@ -19,7 +19,7 @@ import { EvidenceView } from "./views/evidence.tsx";
 import { InboxView } from "./views/inbox.tsx";
 import { SettingsView } from "./views/settings.tsx";
 import { ExportView } from "./views/export.tsx";
-import { GitHubView } from "./views/github.tsx";
+import { ReposView } from "./views/repos.tsx";
 import { ImportView } from "./views/import.tsx";
 import { IssuesView } from "./views/issues.tsx";
 import { PreviewView } from "./views/preview.tsx";
@@ -86,7 +86,7 @@ export function App(props: { onQuit: () => void; firstRun?: boolean }) {
       [
         { id: "inbox", label: "Inbox", count: inboxCount ? String(inboxCount) : undefined },
         { id: "import", label: "Import" },
-        { id: "github", label: "Repositories" },
+        { id: "repos", label: "Repositories" },
         { id: "sources", label: "Sources", count: String(r.meta?.sources?.length ?? 0) },
       ],
     ],
@@ -156,7 +156,7 @@ export function App(props: { onQuit: () => void; firstRun?: boolean }) {
     { id: "skills", label: "Suggest skills from my resume", keywords: "ats keywords", keys: "g", group: "Edit", run: () => goTo("skills", "suggest") },
     { id: "import-json", label: "Import a JSON Resume", keywords: "file yaml gist registry upload", group: "Import", run: () => goTo("import", "json") },
     { id: "import-web", label: "Import from a web page", keywords: "tabstack url talks site", group: "Import", run: () => goTo("import", "web") },
-    { id: "github", label: "Scan my GitHub and GitLab for skills and projects", keywords: "portfolio repos repositories gitlab github", group: "Import", run: () => goTo("github", "run") },
+    { id: "scan-repos", label: "Scan my GitHub and GitLab for skills and projects", keywords: "portfolio repos repositories gitlab github", group: "Import", run: () => goTo("repos", "run") },
     { id: "refresh", label: "Refresh saved sources", keywords: "update talks", group: "Import", run: () => goTo("sources", "run") },
     { id: "tailor", label: "Tailor to a job posting", keywords: "cover letter application keywords", group: "Output", run: () => goTo("tailor") },
     { id: "coach", label: "Strengthen a role (achievement interview)", keywords: "coach numbers quantify bullets metrics", group: "Edit", run: () => goTo("coach") },
@@ -194,7 +194,7 @@ export function App(props: { onQuit: () => void; firstRun?: boolean }) {
         const host = forge[0] === "gitlab-self" ? await store.prompt("GitLab host, e.g. gitlab.example.com") : undefined;
         if (forge[0] === "gitlab-self" && !host) return;
         const username = await store.prompt(`Your ${forge[0] === "github" ? "GitHub" : "GitLab"} username`);
-        if (username) goTo("github", "run", { forge: forge[0] === "github" ? "github" : "gitlab", username, host: host || undefined });
+        if (username) goTo("repos", "run", { forge: forge[0] === "github" ? "github" : "gitlab", username, host: host || undefined });
       },
     },
     { label: "Fill in my details", detail: "Start with your name, title and contact details, then add roles one at a time.", run: () => goTo("basics", "edit") },
@@ -299,7 +299,7 @@ export function App(props: { onQuit: () => void; firstRun?: boolean }) {
   else if (navId === "variants") view = <VariantsView {...main} intent={mine("variants")} />;
   else if (navId === "tailor") view = <TailorView {...main} />;
   else if (navId === "import") view = <ImportView {...main} intent={mine("import")} />;
-  else if (navId === "github") view = <GitHubView {...main} intent={mine("github")} />;
+  else if (navId === "repos") view = <ReposView {...main} intent={mine("repos")} />;
   else if (navId === "sources") view = <SourcesView {...main} intent={mine("sources")} />;
   else if (navId === "issues") view = <IssuesView {...main} onJump={(section, index) => goTo(section, "select", index)} />;
   else if (navId === "export") view = <ExportView {...main} intent={mine("export")} />;

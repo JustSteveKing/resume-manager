@@ -1,7 +1,8 @@
 import { join } from "node:path";
-import { analyze, type GitHubAnalysis } from "./github/analyze.ts";
+import { analyze, type RepoAnalysis } from "./repos/analyze.ts";
 import { accountsFromResume, mergeData } from "./forges/index.ts";
-import { CACHE_DIR, type GitHubData } from "./github/collect.ts";
+import { CACHE_DIR } from "./paths.ts";
+import { type RepoData } from "./repos/types.ts";
 import { mentions, suggestSkills } from "./keywords.ts";
 import type { Resume } from "./schema.ts";
 
@@ -84,20 +85,18 @@ function supportsForm(text: string, skill: string): boolean {
 }
 
 /** Cached GitHub/GitLab scans for the resume's accounts, merged (run `cv scan` to create them). */
-export async function cachedRepos(r: Resume): Promise<GitHubAnalysis | undefined> {
-  const datas: GitHubData[] = [];
+export async function cachedRepos(r: Resume): Promise<RepoAnalysis | undefined> {
+  const datas: RepoData[] = [];
   for (const a of accountsFromResume(r)) {
     const path = a.forge === "github" ? join(CACHE_DIR, "github", `${a.username.toLowerCase()}.json`) : join(CACHE_DIR, "gitlab", a.host ?? "gitlab.com", `${a.username.toLowerCase()}.json`);
     const file = Bun.file(path);
-    if (await file.exists()) datas.push((await file.json()) as GitHubData);
+    if (await file.exists()) datas.push((await file.json()) as RepoData);
   }
   return datas.length ? analyze(mergeData(datas)) : undefined;
 }
 
-/** @deprecated use cachedRepos (kept for existing callers). */
-export const cachedGitHub = cachedRepos;
 
-function proofsFor(skill: string, r: Resume, gh?: GitHubAnalysis): Proof[] {
+function proofsFor(skill: string, r: Resume, gh?: RepoAnalysis): Proof[] {
   const proofs: Proof[] = [];
   const has = (text: string | undefined) => supports(text, skill);
   for (const w of r.work) {
@@ -136,7 +135,7 @@ function status(listed: boolean, proofs: Proof[], lastUsed: string | undefined, 
  * Evidence for every listed skill, plus skills with evidence that aren't listed
  * (mentioned in the resume, or used in GitHub repos).
  */
-export function evidenceMap(r: Resume, gh?: GitHubAnalysis, now = new Date()): SkillEvidence[] {
+export function evidenceMap(r: Resume, gh?: RepoAnalysis, now = new Date()): SkillEvidence[] {
   const out: SkillEvidence[] = [];
   const seen = new Set<string>();
   for (const group of r.skills) {

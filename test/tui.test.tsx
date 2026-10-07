@@ -424,7 +424,10 @@ describe("TUI", () => {
     await ui.open("Evidence");
     let f = ui.frame();
     expect(f).toContain("Evidence · problems");
-    await ui.press("f", "f"); // → unlisted
+    await ui.press("f");
+    await until(() => ui.frame().includes("Evidence · all"));
+    await ui.press("f");
+    await until(() => ui.frame().includes("Evidence · unlisted"));
     f = ui.frame();
     expect(f).toContain("Evidence · unlisted");
   });

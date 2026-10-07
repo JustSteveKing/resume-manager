@@ -1,67 +1,14 @@
 import { join } from "node:path";
-import { detailRank } from "./analyze.ts";
+import { CACHE_DIR } from "../paths.ts";
+import { detailRank } from "../repos/analyze.ts";
+import type { CollectOptions, RepoData, RepoFacts } from "../repos/types.ts";
 
-// Raw facts from the GitHub REST API. Read-only; nothing here writes to GitHub.
-// GitLab (src/forges/gitlab.ts) produces the same shapes, so analysis works on either or both.
-
-export type Forge = "github" | "gitlab";
-
-export interface RepoFacts {
-  /** Where the repo lives. Missing means GitHub (data cached before GitLab support). */
-  forge?: Forge;
-  /** Host for self-hosted GitLab, e.g. "gitlab.example.com". */
-  host?: string;
-  /** The same project on another forge (a mirror), after merging accounts. */
-  alsoOn?: string[];
-  name: string;
-  fullName: string;
-  url: string;
-  description?: string;
-  homepage?: string;
-  fork: boolean;
-  archived: boolean;
-  stars: number;
-  forks: number;
-  openIssues: number;
-  language?: string;
-  topics: string[];
-  license?: string;
-  createdAt: string;
-  pushedAt: string;
-  sizeKb: number;
-  /** Bytes per language (only collected for detailed repos). */
-  languages?: Record<string, number>;
-  /** README text, truncated (only collected for detailed repos). */
-  readme?: string;
-  /** Dependency manifests by filename (only collected for detailed repos). */
-  manifests?: Record<string, string>;
-}
-
-export interface GitHubData {
-  forge?: Forge;
-  host?: string;
-  /** The account's profile page, e.g. https://github.com/ada. */
-  profileUrl?: string;
-  user: {
-    login: string;
-    name?: string;
-    bio?: string;
-    blog?: string;
-    company?: string;
-    location?: string;
-    followers: number;
-    publicRepos: number;
-    createdAt: string;
-  };
-  repos: RepoFacts[];
-  collectedAt: string;
-}
+// GitHub REST API collector. Read-only; nothing here writes to GitHub.
 
 const API = "https://api.github.com";
 const MANIFESTS = ["composer.json", "package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "Gemfile"];
 const README_LIMIT = 6000;
 
-export const CACHE_DIR = process.env.RESUME_CACHE_DIR ?? ".cache";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** GITHUB_TOKEN, else the gh CLI's token, else unauthenticated (60 requests/hour). */
@@ -138,21 +85,16 @@ const toFacts = (r: ApiRepo): RepoFacts => ({
   sizeKb: r.size,
 });
 
-export interface CollectOptions {
-  /** How many repos get the expensive detail pass (languages, README, manifests). */
-  detailed?: number;
-  /** Pick which repos get details; defaults to portfolio score with language diversity. */
-  rank?: (repos: RepoFacts[]) => RepoFacts[];
-  refresh?: boolean;
-  onProgress?: (message: string) => void;
+
+export interface GitHubCollectOptions extends CollectOptions {
   client?: GitHubClient;
 }
 
-export async function collect(username: string, opts: CollectOptions = {}): Promise<GitHubData> {
+export async function collectGitHub(username: string, opts: GitHubCollectOptions = {}): Promise<RepoData> {
   const cacheFile = join(CACHE_DIR, "github", `${username.toLowerCase()}.json`);
   const cached = Bun.file(cacheFile);
   if (!opts.refresh && (await cached.exists())) {
-    const data = (await cached.json()) as GitHubData;
+    const data = (await cached.json()) as RepoData;
     if (Date.now() - Date.parse(data.collectedAt) < CACHE_TTL_MS) return data;
   }
 
@@ -188,7 +130,7 @@ export async function collect(username: string, opts: CollectOptions = {}): Prom
     }
   }
 
-  const data: GitHubData = {
+  const data: RepoData = {
     forge: "github",
     host: "github.com",
     profileUrl: `https://github.com/${u.login}`,
@@ -224,8 +166,3 @@ function manifestsFor(repo: RepoFacts): string[] {
   return [...out].filter((f) => MANIFESTS.includes(f));
 }
 
-/** "GitHub", "GitLab", or the host for self-hosted GitLab. */
-export function forgeLabel(r: { forge?: Forge; host?: string }): string {
-  if ((r.forge ?? "github") === "github") return "GitHub";
-  return !r.host || r.host === "gitlab.com" ? "GitLab" : r.host;
-}

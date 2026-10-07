@@ -1,9 +1,10 @@
 import { join } from "node:path";
-import { detailRank } from "../github/analyze.ts";
-import { CACHE_DIR, type CollectOptions, type GitHubData, type RepoFacts } from "../github/collect.ts";
+import { detailRank } from "../repos/analyze.ts";
+import { CACHE_DIR } from "../paths.ts";
+import { type CollectOptions, type RepoData, type RepoFacts } from "../repos/types.ts";
 
 // GitLab (gitlab.com or self-hosted) via the REST API v4. Read-only. Produces the same
-// GitHubData shape as the GitHub collector so analysis, write-ups and evidence work unchanged.
+// RepoData shape as the GitHub collector so analysis, write-ups and evidence work unchanged.
 //
 // Without a token GitLab returns a slimmer project view: no fork or archive flags, and the
 // user-detail endpoint is forbidden. Everything still works; a token adds fork detection.
@@ -105,13 +106,13 @@ export interface GitLabCollectOptions extends Omit<CollectOptions, "client"> {
   languages?: number;
 }
 
-export async function collectGitLab(username: string, opts: GitLabCollectOptions = {}): Promise<GitHubData> {
+export async function collectGitLab(username: string, opts: GitLabCollectOptions = {}): Promise<RepoData> {
   const base = gitlabBase(opts.host);
   const host = new URL(base).host;
   const cacheFile = join(CACHE_DIR, "gitlab", host, `${username.toLowerCase()}.json`);
   const cached = Bun.file(cacheFile);
   if (!opts.refresh && (await cached.exists())) {
-    const data = (await cached.json()) as GitHubData;
+    const data = (await cached.json()) as RepoData;
     if (Date.now() - Date.parse(data.collectedAt) < 24 * 60 * 60 * 1000) return data;
   }
 
@@ -159,7 +160,7 @@ export async function collectGitLab(username: string, opts: GitLabCollectOptions
     }
   }
 
-  const data: GitHubData = {
+  const data: RepoData = {
     forge: "gitlab",
     host,
     profileUrl: user.web_url,

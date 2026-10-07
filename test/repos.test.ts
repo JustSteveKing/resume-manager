@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { analyze, detailRank, detectTools, scoreRepo } from "../src/github/analyze.ts";
-import { GitHubClient, type GitHubData, type RepoFacts } from "../src/github/collect.ts";
-import { githubUsername, scanGitHub, scanReport } from "../src/github/index.ts";
-import { groundSkills, isGrounded, numbersIn, toProjects, toSkills } from "../src/github/summarize.ts";
+import { analyze, detailRank, detectTools, scoreRepo } from "../src/repos/analyze.ts";
+import { GitHubClient } from "../src/forges/github.ts";
+import { type RepoData, type RepoFacts } from "../src/repos/types.ts";
+import { accountsFromResume } from "../src/forges/index.ts";
+import { scanRepos, scanReport } from "../src/repos/index.ts";
+import { groundSkills, isGrounded, numbersIn, toProjects, toSkills } from "../src/repos/summarize.ts";
 import { Resume } from "../src/schema.ts";
 
 const NOW = Date.parse("2026-10-01T00:00:00Z");
@@ -25,7 +27,7 @@ const repo = (over: Partial<RepoFacts> = {}): RepoFacts => ({
   ...over,
 });
 
-const data = (repos: RepoFacts[]): GitHubData => ({
+const data = (repos: RepoFacts[]): RepoData => ({
   user: { login: "ada", followers: 10, publicRepos: repos.length, createdAt: "2014-01-01T00:00:00Z" },
   repos,
   collectedAt: "2026-10-01T00:00:00Z",
@@ -162,13 +164,13 @@ describe("grounding", () => {
   });
 });
 
-test("githubUsername reads the GitHub profile", () => {
+test("accountsFromResume reads the GitHub profile", () => {
   const r = Resume.parse({ basics: { profiles: [{ network: "Twitter", url: "https://twitter.com/x" }, { network: "GitHub", url: "https://github.com/AdaDev/" }] } });
-  expect(githubUsername(r)).toBe("AdaDev");
-  expect(githubUsername(Resume.parse({}))).toBeUndefined();
+  expect(accountsFromResume(r)).toEqual([{ forge: "github", username: "AdaDev" }]);
+  expect(accountsFromResume(Resume.parse({}))).toEqual([]);
 });
 
-describe("scanGitHub (offline)", () => {
+describe("scanRepos (offline, GitHub)", () => {
   class FakeGitHub extends GitHubClient {
     paths: string[] = [];
     override async json<T>(path: string): Promise<T> {
@@ -200,7 +202,7 @@ describe("scanGitHub (offline)", () => {
         ? { summary: "PHP engineer building API SDKs.", skills: [{ name: "Frameworks", keywords: ["Saloon", "sdk"], evidence: "Saloon in 1 repo" }] }
         : { projects: [{ repo: "sdk", description: "Build typed API SDKs fast.", highlights: ["Clean base client with resource traits", "Has 217 stars"], keywords: ["Saloon"], roles: ["Creator"] }] };
     };
-    const scan = await scanGitHub({ username: "ada", ai: true, refresh: true, client: gh, generate });
+    const scan = await scanRepos({ username: "ada", ai: true, refresh: true, client: gh, generate });
 
     expect(gh.paths).not.toContain("/repos/ada/fork/languages"); // forks get no detail pass
     expect(prompts[0]).toContain("Saloon: 1 repos");

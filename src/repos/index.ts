@@ -1,21 +1,12 @@
 import type { Resume, Skill } from "../schema.ts";
-import { analyze, type GitHubAnalysis } from "./analyze.ts";
+import { analyze, type RepoAnalysis } from "./analyze.ts";
 import { accountLabel, accountsFromResume, collectAccount, mergeData, type Account } from "../forges/index.ts";
 import type { GitLabClient } from "../forges/gitlab.ts";
-import { type GitHubClient, type GitHubData } from "./collect.ts";
+import type { GitHubClient } from "../forges/github.ts";
+import type { RepoData } from "./types.ts";
 import { cachedGenerate, summarizeSkills, toProjects, toSkills, writePortfolio, type Generate, type GroundedProject, type SkillsSummary } from "./summarize.ts";
 
 export const REPORTS_DIR = process.env.RESUME_REPORTS_DIR ?? "reports";
-
-/** GitHub username from the resume's profiles (by network name or github.com URL). */
-export function githubUsername(r: Resume): string | undefined {
-  for (const p of r.basics.profiles ?? []) {
-    const fromUrl = p.url?.match(/github\.com\/([A-Za-z0-9-]+)\/?$/)?.[1];
-    if (p.network?.toLowerCase() === "github" && (p.username || fromUrl)) return p.username || fromUrl;
-    if (fromUrl) return fromUrl;
-  }
-  return undefined;
-}
 
 /** Accounts to scan: the resume's GitHub/GitLab profiles unless given explicitly. */
 export const scanAccounts = (r: Resume, explicit?: Account[]) => (explicit?.length ? explicit : accountsFromResume(r));
@@ -37,8 +28,8 @@ export interface ScanOptions {
 
 export interface ScanResult {
   accounts: Account[];
-  data: GitHubData;
-  analysis: GitHubAnalysis;
+  data: RepoData;
+  analysis: RepoAnalysis;
   summary?: SkillsSummary;
   projects: GroundedProject[];
   skills: Skill[];
@@ -49,7 +40,7 @@ export async function scanRepos(opts: ScanOptions): Promise<ScanResult> {
   const progress = opts.onProgress ?? (() => {});
   const accounts = opts.accounts?.length ? opts.accounts : opts.username ? [{ forge: "github" as const, username: opts.username }] : [];
   if (!accounts.length) throw new Error("No GitHub or GitLab account to scan. Add one to Basics → Profiles, or pass a username.");
-  const datas: GitHubData[] = [];
+  const datas: RepoData[] = [];
   for (const account of accounts) {
     datas.push(
       await collectAccount(account, {
@@ -76,15 +67,13 @@ export async function scanRepos(opts: ScanOptions): Promise<ScanResult> {
   return { accounts, data, analysis, summary, projects: toProjects(analysis, writeups), skills: toSkills(analysis, summary, repoNames) };
 }
 
-/** GitHub only (kept for existing callers). */
-export const scanGitHub = (opts: ScanOptions & { username: string }) => scanRepos({ ...opts, accounts: [{ forge: "github", username: opts.username }] });
 
 export function scanReport(s: ScanResult): string {
   const a = s.analysis;
   const lines = [
     `# Repositories: ${s.accounts.map(accountLabel).join(" · ")}`,
     "",
-    `Collected ${s.data.collectedAt.slice(0, 10)} · ${a.stats.originals} original repos (${a.stats.forks} forks) · ${a.stats.stars} stars · ${a.stats.activeLastYear} active in the last year · ${a.stats.yearsOnGitHub} years publishing code`,
+    `Collected ${s.data.collectedAt.slice(0, 10)} · ${a.stats.originals} original repos (${a.stats.forks} forks) · ${a.stats.stars} stars · ${a.stats.activeLastYear} active in the last year · ${a.stats.yearsActive} years publishing code`,
     "",
   ];
   if (s.summary) lines.push("## Summary", "", s.summary.summary, "");

@@ -7,7 +7,7 @@ import { CHECK_ICON, runDoctor } from "./doctor.ts";
 import { exportResume, PdfRenderer, type Format, type PaperSize, type PdfResult } from "./export/index.ts";
 import { THEMES, themeById, type Theme } from "./export/themes.ts";
 import { accountLabel, accountsFromResume, type Account } from "./forges/index.ts";
-import { saveReport, scanRepos } from "./github/index.ts";
+import { saveReport, scanRepos } from "./repos/index.ts";
 import { rewrite } from "./ai/coach.ts";
 import { getAI } from "./ai/index.ts";
 import { prepForApplication } from "./ai/prep.ts";

@@ -3,9 +3,11 @@ import { join } from "node:path";
 import { runDoctor } from "../src/doctor.ts";
 import { accountLabel, accountsFromResume, mergeData, whereHosted } from "../src/forges/index.ts";
 import { collectGitLab, gitlabBase, GitLabClient } from "../src/forges/gitlab.ts";
-import { CACHE_DIR, forgeLabel, GitHubClient, type GitHubData, type RepoFacts } from "../src/github/collect.ts";
-import { scanRepos, scanReport } from "../src/github/index.ts";
-import { popularity } from "../src/github/summarize.ts";
+import { CACHE_DIR } from "../src/paths.ts";
+import { forgeLabel, type RepoData, type RepoFacts } from "../src/repos/types.ts";
+import { GitHubClient } from "../src/forges/github.ts";
+import { scanRepos, scanReport } from "../src/repos/index.ts";
+import { popularity } from "../src/repos/summarize.ts";
 import { applySuggestion, runInbox } from "../src/inbox.ts";
 import { Resume } from "../src/schema.ts";
 
@@ -96,7 +98,7 @@ describe("accounts and merging", () => {
     name: "x", fullName: "a/x", url: "u", fork: false, archived: false, stars: 0, forks: 0, openIssues: 0, topics: [],
     createdAt: "2020-01-01T00:00:00Z", pushedAt: "2025-01-01T00:00:00Z", sizeKb: 100, ...o,
   });
-  const data = (forge: "github" | "gitlab", repos: RepoFacts[]): GitHubData => ({
+  const data = (forge: "github" | "gitlab", repos: RepoFacts[]): RepoData => ({
     forge, user: { login: "ada", followers: 3, publicRepos: repos.length, createdAt: forge === "github" ? "2014-01-01" : "2012-01-01" }, repos, collectedAt: "2026-01-01",
   });
 

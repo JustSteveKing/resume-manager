@@ -1,4 +1,4 @@
-import type { GitHubData, RepoFacts } from "./collect.ts";
+import type { RepoData, RepoFacts } from "./types.ts";
 
 // Deterministic analysis: everything here is derived from GitHub data, no AI involved.
 
@@ -27,12 +27,12 @@ export interface ScoredRepo {
   reasons: string[];
 }
 
-export interface GitHubAnalysis {
+export interface RepoAnalysis {
   login: string;
   languages: LanguageStat[];
   tools: Evidence[];
   portfolio: ScoredRepo[];
-  stats: { originals: number; forks: number; stars: number; activeLastYear: number; yearsOnGitHub: number };
+  stats: { originals: number; forks: number; stars: number; activeLastYear: number; yearsActive: number };
 }
 
 const NOISE_LANGUAGES = new Set(["Dockerfile", "Makefile", "Procfile", "Batchfile", "Roff", "MDX"]);
@@ -152,7 +152,7 @@ export function scoreRepo(repo: RepoFacts, now = Date.now()): ScoredRepo {
   return { repo, score: Math.round(score * 10) / 10, reasons };
 }
 
-export function analyze(data: GitHubData, opts: { portfolioSize?: number; now?: number } = {}): GitHubAnalysis {
+export function analyze(data: RepoData, opts: { portfolioSize?: number; now?: number } = {}): RepoAnalysis {
   const now = opts.now ?? Date.now();
   const originals = data.repos.filter((r) => !r.fork);
 
@@ -213,7 +213,7 @@ export function analyze(data: GitHubData, opts: { portfolioSize?: number; now?: 
       forks: data.repos.length - originals.length,
       stars: originals.reduce((n, r) => n + r.stars, 0),
       activeLastYear: originals.filter((r) => age(r.pushedAt, now) < 1).length,
-      yearsOnGitHub: Math.floor(age(data.user.createdAt, now)),
+      yearsActive: Math.floor(age(data.user.createdAt, now)),
     },
   };
 }

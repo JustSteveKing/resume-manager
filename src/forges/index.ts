@@ -1,4 +1,5 @@
-import { collect, forgeLabel, type CollectOptions, type Forge, type GitHubClient, type GitHubData, type RepoFacts } from "../github/collect.ts";
+import { collectGitHub as collect, type GitHubClient } from "./github.ts";
+import { forgeLabel, type CollectOptions, type Forge, type RepoData, type RepoFacts } from "../repos/types.ts";
 import type { Resume } from "../schema.ts";
 import { collectGitLab, DEFAULT_GITLAB_HOST, type GitLabClient } from "./gitlab.ts";
 
@@ -46,7 +47,7 @@ export interface CollectAccountOptions extends Omit<CollectOptions, "client"> {
   gitlabClient?: GitLabClient;
 }
 
-export function collectAccount(a: Account, opts: CollectAccountOptions = {}): Promise<GitHubData> {
+export function collectAccount(a: Account, opts: CollectAccountOptions = {}): Promise<RepoData> {
   if (a.forge === "github") return collect(a.username, { ...opts, client: opts.githubClient });
   return collectGitLab(a.username, { ...opts, host: a.host ?? DEFAULT_GITLAB_HOST, client: opts.gitlabClient });
 }
@@ -58,7 +59,7 @@ const key = (r: RepoFacts) => r.name.toLowerCase().replace(/[^a-z0-9]/g, "");
  * as a mirror: the more popular copy is kept (ties go to the most recent) and the other's URL is
  * recorded in `alsoOn`, so stars aren't double-counted.
  */
-export function mergeData(datas: GitHubData[]): GitHubData {
+export function mergeData(datas: RepoData[]): RepoData {
   if (datas.length === 1) return datas[0]!;
   if (!datas.length) throw new Error("No accounts to merge");
   const byKey = new Map<string, RepoFacts>();

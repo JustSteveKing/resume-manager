@@ -217,8 +217,8 @@ Your data stays out of git: `resume.json`, `variants/` and `applications/` are g
 | `src/lint.ts` | Validation and writing checks |
 | `src/sources.ts` | Saved import sources and refresh; duplicate detection (`isDuplicate`, `findSimilar`) |
 | `src/importer.ts` | JSON Resume import: read, normalise legacy fields, validate per entry, merge/replace |
-| `src/github/` | Repository scan: `collect.ts` (GitHub API + cache), `analyze.ts` (deterministic), `summarize.ts` (write-ups + grounding), `index.ts` (orchestration) |
-| `src/forges/` | GitLab collector (`gitlab.ts`), accounts from profiles and merging mirrors (`index.ts`) |
+| `src/repos/` | Repository scan: `types.ts` (shared shapes), `analyze.ts` (deterministic), `summarize.ts` (write-ups + grounding), `index.ts` (orchestration) |
+| `src/forges/` | Collectors: `github.ts`, `gitlab.ts`; accounts from profiles and merging mirrors (`index.ts`) |
 | `src/export/` | Renderers (`html.ts`, `text.ts`), `themes.ts`, `ats.ts`, export pipeline |
 | `src/config.ts`, `src/doctor.ts`, `src/costs.ts` | User config and data folder, setup checks, spend ledger and budget |
 | `src/cli.ts` → `commands.ts` / `tui/` | Entry point, non-interactive commands, OpenTUI app (`app.tsx`, `form.tsx`, `views/`) |

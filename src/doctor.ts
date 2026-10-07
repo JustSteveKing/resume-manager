@@ -6,7 +6,7 @@ import { CONFIG_FILE, loadConfig, maskKey, resolveHome } from "./config.ts";
 import { describeSpend, monthSpend } from "./costs.ts";
 import { accountsFromResume } from "./forges/index.ts";
 import { gitlabBase, gitlabToken } from "./forges/gitlab.ts";
-import { githubToken } from "./github/collect.ts";
+import { githubToken } from "./forges/github.ts";
 import { hasErrors, lint } from "./lint.ts";
 import { load, RESUME_PATH } from "./store.ts";
 import { tabstack } from "./tabstack.ts";
