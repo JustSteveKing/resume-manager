@@ -129,4 +129,5 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 - All paid calls go through the metered Tabstack client (`tabstack()`) or `ClaudeAI`, which check the budget and log spend. Don't construct SDK clients elsewhere for paid endpoints.
 - GitHub and GitLab both produce `RepoData`/`RepoFacts` (`src/repos/types.ts`) (with `forge`/`host`); analysis and write-ups are forge-agnostic. Add forge-specific code in `src/forges/`, and use `forgeLabel`/`popularity` rather than hard-coding "GitHub". Inbox state keys for GitHub are bare repo names (pre-GitLab history); GitLab keys are `gitlab:<host>:<name>`.
 - CLI commands live in `src/cli/<area>.ts` as `cmdX(ctx)` functions registered in `src/cli/index.ts`; add new options to `OPTIONS` in `src/cli/context.ts`. (`src/tui/commands.ts` is the TUI palette, not the CLI.)
+- Dependencies are pinned to exact versions (OpenTUI is pre-1.0). Upgrade one at a time and re-run the TUI and preview tests.
 - Run `bun test` and `bun run typecheck` after changes.
