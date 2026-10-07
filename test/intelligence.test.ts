@@ -297,3 +297,10 @@ describe("near-duplicate highlights", () => {
     expect(msgs).toHaveLength(1);
   });
 });
+
+test("stemming matches common word forms (from the first live evidence pass)", () => {
+  expect(supports("Leading engineering teams to ship faster", "Team Leadership")).toBe(true);
+  expect(supports("Created an extensive technical content library", "Technical Content Creation")).toBe(true);
+  expect(supports("Led and facilitated bootcamps", "Bootcamp Facilitation")).toBe(true);
+  expect(supports("Going to market", "Go")).toBe(false);
+});

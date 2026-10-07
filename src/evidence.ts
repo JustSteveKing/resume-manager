@@ -36,17 +36,18 @@ const IRREGULAR: Record<string, string> = {
   spoke: "speak", spoken: "speak", wrote: "write", written: "write", led: "lead", built: "build",
   ran: "run", taught: "teach", grew: "grow", drove: "drive", made: "make", gave: "give",
 };
-const SUFFIXES = ["ations", "ation", "ments", "ment", "ings", "ing", "ists", "ist", "isms", "ism", "ers", "er", "ated", "ates", "ate", "acy", "ed", "es", "s"];
+// "-ion" (not "-ation") so creation/created → creat and facilitation/facilitated → facilitat.
+const SUFFIXES = ["ions", "ion", "ments", "ment", "ships", "ship", "ings", "ing", "ists", "ist", "isms", "ism", "ers", "er", "ate", "acy", "ed", "es", "s"];
 const STOP = new Set(["and", "of", "the", "for", "with", "in", "to", "on", "a", "an"]);
 
 export function stem(word: string): string {
   let w = word.toLowerCase().replace(/[^a-z0-9+#.]/g, "");
   w = IRREGULAR[w] ?? w;
-  for (const suffix of SUFFIXES) {
-    if (w.length - suffix.length >= 3 && w.endsWith(suffix)) {
-      w = w.slice(0, -suffix.length);
-      break;
-    }
+  // Two passes for stacked suffixes: leadership → leader → lead, developers → developer → develop.
+  for (let pass = 0; pass < 2; pass++) {
+    const suffix = SUFFIXES.find((x) => w.length - x.length >= 3 && w.endsWith(x));
+    if (!suffix) break;
+    w = w.slice(0, -suffix.length);
   }
   return w.length > 3 && w.endsWith("e") ? w.slice(0, -1) : w;
 }
