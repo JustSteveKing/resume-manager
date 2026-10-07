@@ -77,6 +77,13 @@ describe("variants", () => {
     expect(applyVariant(career(), { keywords: ["Laravel"], maxPublications: 1 }).publications.map((p) => p.name)).toEqual(["Laravel talk"]);
   });
 
+  test("when trimming without keywords, quantified highlights are kept first", () => {
+    const r = career();
+    r.work[0]!.highlights = ["Ran hiring", "Led Laravel team", "Cut costs 20%"];
+    expect(applyVariant(r, { maxHighlights: 1 }).work[0]!.highlights).toEqual(["Cut costs 20%"]);
+    expect(applyVariant(r, {}).work[0]!.highlights).toEqual(["Cut costs 20%", "Ran hiring", "Led Laravel team"]);
+  });
+
   test("overrides, dropRoleSummaries and block order", () => {
     const view = applyVariant(career(), { basics: { label: "API Person" }, dropRoleSummaries: true, blocks: ["experience", "summary"] });
     expect(view.basics.label).toBe("API Person");
@@ -99,6 +106,21 @@ describe("variants", () => {
     expect(r.work.map((w) => w.name)).toEqual(["Now Co", "Api Co", "Old Co"]);
     expect(r.work[1]!.highlights).toBeUndefined();
     expect("earlierCareer" in r).toBe(false);
+  });
+
+  test("tighten trims peripheral sections and skill lists before experience", () => {
+    const r = career();
+    r.interests = [{ name: "Climbing" }];
+    r.volunteer = [{ organization: "Code Club" }];
+    r.skills = [{ name: "Backend", keywords: Array.from({ length: 12 }, (_, i) => `Skill ${i}`) }];
+    const steps = [...tighten({}, r)];
+    const names = steps.map((s) => s.step);
+    expect(names.indexOf("drop Interests")).toBeLessThan(names.indexOf("max 2 highlights per role"));
+    expect(names.indexOf("max 8 skills per group")).toBeLessThan(names.indexOf("max 2 highlights per role"));
+    const after = steps.find((s) => s.step === "max 8 skills per group")!.variant;
+    expect(after.blocks).not.toContain("interests");
+    expect(applyVariant(r, after).skills[0]!.keywords).toHaveLength(8);
+    expect(names).not.toContain("drop Awards & Certificates"); // nothing to drop
   });
 
   test("tighten only yields steps that change something", () => {
@@ -159,6 +181,14 @@ describe("ATS check (renders real PDFs)", () => {
     const report = await checkAts(await renderer.render(view, theme, "A4"), view);
     expect(report).toMatchObject({ ok: true, missing: [], outOfOrder: [] });
     expect(report.pages).toBe(1);
+  }, 30_000);
+
+  test("a section the variant hides isn't expected in the PDF", async () => {
+    const r = await example();
+    r.volunteer = [{ organization: "Code Club", position: "Mentor" }];
+    const view = applyVariant(r, { blocks: ["summary", "experience", "skills"] });
+    const report = await checkAts(await renderer.render(view, THEMES[0]!, "A4"), view);
+    expect(report.missing.filter((m) => m.startsWith("heading"))).toEqual([]);
   }, 30_000);
 
   test("wide letter-spaced serif headings fail", async () => {

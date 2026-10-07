@@ -32,6 +32,8 @@ export const Variant = z.object({
   maxHighlights: count.optional(),
   maxProjects: count.optional(),
   maxPublications: count.optional(),
+  /** Keywords kept per skill group (most relevant first when keywords are set). */
+  maxSkillKeywords: count.optional(),
   /** Roles that ended before this date (YYYY or YYYY-MM) become one-line "Earlier career" entries. */
   earlierCareerBefore: z.string().optional(),
   /** Hide role summaries when the role has highlights. */
@@ -111,8 +113,15 @@ function pickTop<T extends object>(items: T[], n: number | undefined, keywords: 
 }
 
 /** Stable sort of strings by keyword relevance, most relevant first. */
+/** A quantified bullet ("20 thousand users", "40%") beats a vague one when space is short. */
+const strength = (h: string) => (/\d/.test(h) ? 1 : 0);
+
+/**
+ * Most relevant first (keyword hits), then quantified before vague; otherwise the author's order.
+ * Stable, so with nothing to go on nothing moves.
+ */
 const rankStrings = (items: string[] | undefined, keywords: string[]) =>
-  keywords.length && items ? [...items].sort((a, b) => score(b, keywords) - score(a, keywords)) : items;
+  items && [...items].sort((a, b) => (keywords.length ? score(b, keywords) - score(a, keywords) : 0) || strength(b) - strength(a));
 
 export function applyVariant(full: Resume, v: Variant = {}): ResumeView {
   const r = structuredClone(full) as ResumeView;
@@ -144,6 +153,9 @@ export function applyVariant(full: Resume, v: Variant = {}): ResumeView {
   r.projects = pickTop(r.projects, v.maxProjects, kw).kept;
   r.publications = pickTop(r.publications, v.maxPublications, kw).kept;
   if (kw.length) r.skills = [...r.skills].sort((a, b) => score(textOf(b), kw) - score(textOf(a), kw));
+  if (v.maxSkillKeywords !== undefined) {
+    for (const g of r.skills) g.keywords = rankStrings(g.keywords, kw)?.slice(0, v.maxSkillKeywords);
+  }
 
   if (v.basics?.label) r.basics.label = v.basics.label;
   if (v.basics?.summary) r.basics.summary = v.basics.summary;
@@ -183,14 +195,43 @@ const lower = (key: "maxHighlights" | "maxPublications" | "maxProjects" | "maxRo
 });
 
 // Least painful first, alternating between depth (highlights) and breadth (roles, talks).
+const DEFAULT_BLOCKS = BLOCK_IDS.filter((b) => b !== "contact");
+const visibleBlocks = (v: Variant) => v.blocks ?? DEFAULT_BLOCKS;
+const dropBlock = (block: BlockId, step: string): Step => ({
+  set: {},
+  step,
+  applies: (v, r) => visibleBlocks(v).includes(block) && hasContent(r, block),
+});
+const hasContent = (r: Resume, block: BlockId) =>
+  ({ references: r.references, interests: r.interests, volunteer: r.volunteer, awards: [...r.awards, ...r.certificates], languages: r.languages } as Record<string, unknown[]>)[block]?.length !== 0;
+const skillCap = (n: number, step: string): Step => ({
+  set: { maxSkillKeywords: n },
+  step,
+  applies: (v, r) => (v.maxSkillKeywords ?? Math.max(0, ...r.skills.map((g) => g.keywords?.length ?? 0))) > n,
+});
+
+/** Steps that remove a whole section, by step label. */
+const DROPS: Record<string, BlockId> = {
+  "drop Interests": "interests",
+  "drop Volunteering": "volunteer",
+  "drop Awards & Certificates": "awards",
+};
+
+// Least painful first. Peripheral sections and long skill lists go before experience detail;
+// "max 1 highlight per role" is the last resort.
 const STEPS: Step[] = [
+  dropBlock("interests", "drop Interests"),
   { set: { dropRoleSummaries: true }, step: "hide role summaries", applies: (v) => !v.dropRoleSummaries },
+  skillCap(8, "max 8 skills per group"),
   lower("maxHighlights", 4, "max 4 highlights per role"),
   lower("maxPublications", 8, "max 8 talks/articles"),
   lower("maxProjects", 3, "max 3 projects"),
+  dropBlock("volunteer", "drop Volunteering"),
   lower("maxHighlights", 3, "max 3 highlights per role"),
   lower("maxRoles", 8, "max 8 full roles (rest as earlier career)"),
+  skillCap(5, "max 5 skills per group"),
   lower("maxPublications", 5, "max 5 talks/articles"),
+  dropBlock("awards", "drop Awards & Certificates"),
   lower("maxRoles", 6, "max 6 full roles"),
   lower("maxHighlights", 2, "max 2 highlights per role"),
   lower("maxPublications", 3, "max 3 talks/articles"),
@@ -207,7 +248,8 @@ export function* tighten(base: Variant, full: Resume): Generator<{ variant: Vari
   let v: Variant = { ...base };
   for (const s of STEPS) {
     if (!s.applies(v, full)) continue;
-    v = { ...v, ...s.set };
+    const drop = DROPS[s.step];
+    v = drop ? { ...v, blocks: visibleBlocks(v).filter((b) => b !== drop) } : { ...v, ...s.set };
     yield { variant: v, step: s.step };
   }
 }

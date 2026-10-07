@@ -1,6 +1,6 @@
 import { extractText, getDocumentProxy } from "unpdf";
 import { formatRange } from "../dates.ts";
-import type { ResumeView } from "./blocks.ts";
+import { BLOCK_IDS, type BlockId, type ResumeView } from "./blocks.ts";
 import { renderText } from "./text.ts";
 
 export interface AtsReport {
@@ -28,10 +28,11 @@ export async function pdfText(pdf: Uint8Array): Promise<{ text: string; pages: n
   return { text, pages: doc.numPages };
 }
 
-const HEADINGS: [keyof ResumeView | "earlierCareer", string][] = [
-  ["work", "Experience"], ["earlierCareer", "Earlier Career"], ["projects", "Projects"], ["skills", "Skills"],
-  ["publications", "Publications & Talks"], ["education", "Education"], ["volunteer", "Volunteering"],
-  ["languages", "Languages"],
+/** [data key, block that renders it, heading text] */
+const HEADINGS: [keyof ResumeView | "earlierCareer", BlockId, string][] = [
+  ["work", "experience", "Experience"], ["earlierCareer", "earlier", "Earlier Career"], ["projects", "projects", "Projects"],
+  ["skills", "skills", "Skills"], ["publications", "publications", "Publications & Talks"], ["education", "education", "Education"],
+  ["volunteer", "volunteer", "Volunteering"], ["languages", "languages", "Languages"],
 ];
 
 /** Check that what an ATS extracts from the PDF still contains the resume's key facts, in order. */
@@ -42,11 +43,13 @@ export async function checkAts(pdf: Uint8Array, view: ResumeView): Promise<AtsRe
 
   // Headings must extract as a whole line: "developer experience" in a sentence is not the Experience heading.
   const lines = new Set(text.split("\n").map((l) => norm(l).replace(/^[#>•*\-\s]+/, "")));
-  const headings = HEADINGS.filter(([key]) => {
+  // Only sections the variant actually shows (blockOrder) can be expected in the PDF.
+  const shown = new Set<BlockId>(view.blockOrder ?? BLOCK_IDS);
+  const headings = HEADINGS.filter(([key, block]) => {
     const items = view[key as keyof ResumeView];
-    return Array.isArray(items) && items.length;
-  }).map(([, h]) => h);
-  if (b.summary) headings.unshift("Summary");
+    return shown.has(block) && Array.isArray(items) && items.length;
+  }).map(([, , h]) => h);
+  if (b.summary && shown.has("summary")) headings.unshift("Summary");
   const missingHeadings = headings.filter((h) => !lines.has(norm(h)));
 
   const expected = [b.name, b.email, b.phone].filter(Boolean) as string[];
