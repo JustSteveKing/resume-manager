@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { describePdf } from "../../commands.ts";
+import { describePdf } from "../../export/describe.ts";
 import { BLOCK_IDS } from "../../export/blocks.ts";
 import { safeColour } from "../../export/html.ts";
 import { exportResume, type PdfResult } from "../../export/index.ts";

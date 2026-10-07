@@ -1,6 +1,6 @@
 import { useRenderer } from "@opentui/react";
 import { useEffect, useMemo, useState } from "react";
-import { describePdf } from "../../commands.ts";
+import { describePdf } from "../../export/describe.ts";
 import { loadConfig } from "../../config.ts";
 import { exportResume, type PaperSize } from "../../export/index.ts";
 import { renderText } from "../../export/text.ts";

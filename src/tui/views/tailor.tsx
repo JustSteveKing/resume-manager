@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { describePdf } from "../../commands.ts";
+import { describePdf } from "../../export/describe.ts";
 import { exportResume } from "../../export/index.ts";
 import {
   extractJob, generateTailored, jobCoverage, researchCompany, saveApplication, tailorVariant,

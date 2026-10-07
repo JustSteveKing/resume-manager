@@ -221,7 +221,9 @@ Your data stays out of git: `resume.json`, `variants/` and `applications/` are g
 | `src/forges/` | Collectors: `github.ts`, `gitlab.ts`; accounts from profiles and merging mirrors (`index.ts`) |
 | `src/export/` | Renderers (`html.ts`, `text.ts`), `themes.ts`, `ats.ts`, export pipeline |
 | `src/config.ts`, `src/doctor.ts`, `src/costs.ts` | User config and data folder, setup checks, spend ledger and budget |
-| `src/cli.ts` → `commands.ts` / `tui/` | Entry point, non-interactive commands, OpenTUI app (`app.tsx`, `form.tsx`, `views/`) |
+| `src/cli.ts` | Entry point: resolves the data folder, then runs a command or the TUI |
+| `src/cli/` | Commands, one file per area (`setup`, `resume`, `apply`, `grow`), dispatched from `index.ts`; options in `context.ts` |
+| `src/tui/` | OpenTUI app (`app.tsx`, `form.tsx`, `views/`); `tui/commands.ts` is the palette's action list |
 
 Env: `GITLAB_TOKEN`, `GITLAB_HOST` (self-hosted), `RESUME_HOME` (data folder), `RESUME_CONFIG_DIR` (`~/.config/resume-manager`), `RESUME_AI`, `GITHUB_TOKEN` (optional), `RESUME_CACHE_DIR` (`.cache`), `RESUME_REPORTS_DIR` (`reports`), `RESUME_PATH` (`resume.json`), `RESUME_OUT_DIR` (`dist`), `RESUME_VARIANTS_DIR` (`variants`), `RESUME_APPLICATIONS_DIR` (`applications`), `TABSTACK_API_KEY`.
 

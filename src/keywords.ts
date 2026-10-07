@@ -85,3 +85,12 @@ export function suggestSkills(r: Resume): Skill[] {
     .map(([name, terms]) => ({ name, keywords: terms.filter((t) => mentions(text, t) && !mentions(listed, t)) }))
     .filter((s) => s.keywords.length);
 }
+
+/** Add suggested keywords into existing skill groups by name, creating groups as needed. */
+export function mergeSkills(r: Resume, suggestions: Resume["skills"]) {
+  for (const s of suggestions) {
+    const existing = r.skills.find((x) => x.name.toLowerCase() === s.name.toLowerCase());
+    if (existing) existing.keywords = [...new Set([...(existing.keywords ?? []), ...(s.keywords ?? [])])];
+    else r.skills.push({ name: s.name, keywords: s.keywords });
+  }
+}

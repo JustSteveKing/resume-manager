@@ -7,7 +7,7 @@ const args = Bun.argv.slice(2);
 
 try {
   if (args.length) {
-    const { runCommand } = await import("./commands.ts");
+    const { runCommand } = await import("./cli/index.ts");
     process.exitCode = await runCommand(args, env);
   } else {
     const { runTui } = await import("./tui/index.tsx");

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Intent } from "../commands.ts";
-import { mergeSkills } from "../../commands.ts";
+import { mergeSkills } from "../../keywords.ts";
 import { formatDate, formatRange } from "../../dates.ts";
 import { suggestSkills } from "../../keywords.ts";
 import { Profile, type Resume } from "../../schema.ts";

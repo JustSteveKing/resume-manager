@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { describePdf } from "../../commands.ts";
+import { describePdf } from "../../export/describe.ts";
 import { exportResume, OUT_DIR, PdfRenderer, type Format, type PaperSize } from "../../export/index.ts";
 import { ACCENTS, THEMES, themeById } from "../../export/themes.ts";
 import { loadVariant } from "../../variants.ts";

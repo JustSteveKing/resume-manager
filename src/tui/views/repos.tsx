@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { mergeSkills } from "../../commands.ts";
+import { mergeSkills } from "../../keywords.ts";
 import { accountLabel, accountsFromResume, type Account } from "../../forges/index.ts";
 import { saveReport, scanRepos, type ScanResult } from "../../repos/index.ts";
 import { sectionByKey } from "../../sections.ts";
