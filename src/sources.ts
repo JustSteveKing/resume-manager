@@ -15,16 +15,27 @@ export function removeSource(r: Resume, source: Source) {
   r.meta = { ...r.meta, sources: (r.meta?.sources ?? []).filter((s) => s !== source) };
 }
 
-/** Is this extracted item already in the resume? Matches on display title or URL. */
+const norm = (v: unknown) => String(v ?? "").toLowerCase().trim();
+const nameOf = (i: Item) => norm(i.name ?? i.title ?? i.institution ?? i.organization ?? i.language);
+const sameIdentity = (a: Item, b: Item) => (!!nameOf(a) && nameOf(a) === nameOf(b)) || (!!a.url && a.url === b.url);
+// Roles: a missing position or start date on either side doesn't count as a difference.
+const sameRole = (a: Item, b: Item) =>
+  (!a.position || !b.position || norm(a.position) === norm(b.position)) &&
+  (!a.startDate || !b.startDate || String(a.startDate).slice(0, 4) === String(b.startDate).slice(0, 4));
+
+/**
+ * Is this item already in the resume? Same display title, or same name/URL and the same role
+ * (position and start year). Two roles at one company are not duplicates.
+ */
 export function isDuplicate(section: Section, existing: Item[], item: Item): boolean {
-  const title = section.title(item).toLowerCase();
-  const name = String(item.name ?? item.title ?? item.institution ?? item.organization ?? "").toLowerCase();
-  return existing.some(
-    (e) =>
-      section.title(e).toLowerCase() === title ||
-      (!!item.url && e.url === item.url) ||
-      (!!name && String(e.name ?? e.title ?? e.institution ?? e.organization ?? "").toLowerCase() === name),
-  );
+  const title = norm(section.title(item));
+  return existing.some((e) => norm(section.title(e)) === title || (sameIdentity(e, item) && sameRole(e, item)));
+}
+
+/** An entry with the same name/URL but a different role or start: maybe the same job retitled, maybe a second role. */
+export function findSimilar(section: Section, existing: Item[], item: Item): Item | undefined {
+  if (isDuplicate(section, existing, item)) return undefined;
+  return existing.find((e) => sameIdentity(e, item));
 }
 
 export type RefreshResult =

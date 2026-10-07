@@ -1,15 +1,53 @@
 import Tabstack from "@tabstack/sdk";
 import { z } from "zod";
+import { checkBudget, record, TABSTACK_RESEARCH_FAST_USD } from "./costs.ts";
 import { normaliseDates } from "./dates.ts";
 import { prune } from "./store.ts";
 
 let client: Tabstack | undefined;
+let clientKey: string | undefined;
+
+/** Price per call where known (USD); undefined = counted but unpriced. */
+const METERED: Record<string, Record<string, number | undefined>> = {
+  extract: { json: undefined, markdown: undefined },
+  generate: { json: undefined },
+  agent: { research: TABSTACK_RESEARCH_FAST_USD, automate: undefined },
+};
+
+/** Wrap SDK resources so every call is checked against the budget and recorded in the spend ledger. */
+export function metered(c: Tabstack): Tabstack {
+  return new Proxy(c, {
+    get(target, prop, receiver) {
+      const resource = Reflect.get(target, prop, receiver);
+      const ops = typeof prop === "string" ? METERED[prop] : undefined;
+      if (!ops || !resource) return resource;
+      return new Proxy(resource, {
+        get(res, name, r) {
+          const fn = Reflect.get(res, name, r);
+          if (typeof name !== "string" || !(name in ops) || typeof fn !== "function") return fn;
+          const op = `${String(prop)}.${name}`;
+          const usd = ops[name];
+          return async (...args: unknown[]) => {
+            if (usd) await checkBudget(usd, `Tabstack ${op}`);
+            const out = await fn.apply(res, args);
+            await record({ service: "tabstack", op, usd });
+            return out;
+          };
+        },
+      });
+    },
+  });
+}
 
 export function tabstack() {
-  if (!process.env.TABSTACK_API_KEY) {
-    throw new Error("TABSTACK_API_KEY is not set. Add it to .env (see .env.example).");
+  const key = process.env.TABSTACK_API_KEY;
+  if (!key) throw new Error("TABSTACK_API_KEY is not set. Add it in Settings, or to .env.");
+  // A key changed in Settings takes effect without a restart.
+  if (!client || clientKey !== key) {
+    client = metered(new Tabstack({ apiKey: key }));
+    clientKey = key;
   }
-  return (client ??= new Tabstack({ apiKey: process.env.TABSTACK_API_KEY }));
+  return client;
 }
 
 export type Effort = "min" | "standard" | "max";

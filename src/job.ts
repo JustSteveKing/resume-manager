@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { APPLICATIONS_DIR, ensureApplication } from "./applications.ts";
 import { renderText } from "./export/text.ts";
 import { coverage } from "./keywords.ts";
 import type { Resume } from "./schema.ts";
@@ -125,7 +126,7 @@ export function jobReport(job: JobPosting, cov: ReturnType<typeof jobCoverage>, 
     .join("\n");
 }
 
-export const APPLICATIONS_DIR = process.env.RESUME_APPLICATIONS_DIR ?? "applications";
+export { APPLICATIONS_DIR } from "./applications.ts";
 
 /** Write job.md, cover-letter.md and research.md for an application. Returns written paths. */
 export async function saveApplication(
@@ -133,7 +134,11 @@ export async function saveApplication(
   parts: { url: string; job: JobPosting; cov: ReturnType<typeof jobCoverage>; tailored?: Tailored; research?: { report: string; sources: string[] } },
 ): Promise<string[]> {
   const dir = `${APPLICATIONS_DIR}/${slug}`;
-  const files: [string, string][] = [[`${dir}/job.md`, jobReport(parts.job, parts.cov, parts.url) + "\n"]];
+  const files: [string, string][] = [
+    [`${dir}/job.md`, jobReport(parts.job, parts.cov, parts.url) + "\n"],
+    // Structured copy for interview prep.
+    [`${dir}/job.json`, JSON.stringify({ url: parts.url, ...parts.job }, null, 2) + "\n"],
+  ];
   if (parts.tailored) {
     files.push([`${dir}/cover-letter.md`, parts.tailored.coverLetter.trim() + "\n"]);
   }
@@ -142,5 +147,6 @@ export async function saveApplication(
     files.push([`${dir}/research.md`, `${parts.research.report.trim()}\n${sources ? `\n## Sources\n${sources}\n` : ""}`]);
   }
   for (const [path, body] of files) await Bun.write(path, body);
-  return files.map(([path]) => path);
+  await ensureApplication({ slug, title: parts.job.title, company: parts.job.company, url: parts.url, variant: slug, coverage: parts.cov.ratio });
+  return [...files.map(([path]) => path), `${dir}/application.json`];
 }

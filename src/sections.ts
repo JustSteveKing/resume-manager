@@ -60,7 +60,7 @@ const dated = (main: string, sub?: string, date?: string) =>
 export const SECTIONS: Section[] = [
   section("work", "Work", S.Work, (i) => dated(i.name, i.position, i.startDate)),
   section("projects", "Projects", S.Project, (i) => dated(i.name, undefined, i.startDate)),
-  section("publications", "Publications & talks", S.Publication, (i) =>
+  section("publications", "Talks & articles", S.Publication, (i) =>
     dated(i.name, i.publisher, i.releaseDate),
   ),
   section("education", "Education", S.Education, (i) => dated(i.institution, i.area, i.startDate)),

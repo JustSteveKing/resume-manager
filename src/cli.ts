@@ -1,16 +1,19 @@
 #!/usr/bin/env bun
-import * as p from "@clack/prompts";
-import { runCommand } from "./commands.ts";
-import { runTui } from "./tui.ts";
+import { applyEnvironment } from "./config.ts";
 
+// Resolve the data folder and keys first: other modules read their paths when they're imported.
+const env = await applyEnvironment();
 const args = Bun.argv.slice(2);
 
 try {
-  if (args.length) process.exitCode = await runCommand(args);
-  else await runTui();
+  if (args.length) {
+    const { runCommand } = await import("./commands.ts");
+    process.exitCode = await runCommand(args, env);
+  } else {
+    const { runTui } = await import("./tui/index.tsx");
+    await runTui();
+  }
 } catch (e) {
-  const message = e instanceof Error ? e.message : String(e);
-  if (args.length) console.error(`✖ ${message}`);
-  else p.log.error(message);
+  console.error(`✖ ${e instanceof Error ? e.message : String(e)}`);
   process.exitCode = 1;
 }

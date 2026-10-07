@@ -11,7 +11,7 @@ const ALIASES: Record<string, string[]> = {
   "rest api": ["restful", "rest apis"],
   AWS: ["amazon web services"],
   GCP: ["google cloud"],
-  "developer relations": ["devrel", "developer advocacy"],
+  "developer relations": ["devrel", "developer advocacy", "developer advocate"],
   "api design": ["api-first", "designing apis"],
 };
 

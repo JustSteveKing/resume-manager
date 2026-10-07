@@ -79,3 +79,42 @@ export async function checkAts(pdf: Uint8Array, view: ResumeView): Promise<AtsRe
 
   return { pages, wordCoverage, missing, outOfOrder, ok: !missing.length && !outOfOrder.length && wordCoverage > 0.95 };
 }
+
+// ---------- first glance ----------
+
+export interface Glance {
+  /** What the top third of page 1 shows, in reading order. */
+  shows: string[];
+  /** The first role a recruiter sees, if any. */
+  firstRole?: string;
+  warnings: string[];
+}
+
+/**
+ * The top third of page 1 is what a recruiter reads in the first few seconds.
+ * Report what lands there and flag layouts where experience doesn't make it.
+ */
+export async function firstGlance(pdf: Uint8Array, view: ResumeView): Promise<Glance> {
+  const doc = await getDocumentProxy(pdf.slice());
+  const { text } = await extractText(doc, { mergePages: false });
+  const page1 = (Array.isArray(text) ? text[0] : text) ?? "";
+  const lines = page1.split("\n").map((l) => l.trim()).filter(Boolean);
+  const top = lines.slice(0, Math.max(6, Math.ceil(lines.length / 3)));
+  const topText = norm(top.join(" "));
+  const b = view.basics;
+  const shows: string[] = [];
+  const warnings: string[] = [];
+
+  if (b.name && topText.includes(norm(b.name))) shows.push("name");
+  if (b.label && topText.includes(norm(b.label).slice(0, 30))) shows.push("headline");
+  if ((b.email && topText.includes(norm(b.email))) || (b.phone && topText.includes(norm(b.phone)))) shows.push("contact");
+  const summaryWords = b.summary?.trim().split(/\s+/).length ?? 0;
+  if (b.summary && topText.includes(norm(b.summary).slice(0, 40))) shows.push(`summary (${summaryWords} words)`);
+  const firstRole = view.work.find((w) => (w.position && topText.includes(norm(w.position))) || topText.includes(norm(w.name)));
+  if (firstRole) shows.push(`first role: ${[firstRole.position, firstRole.name].filter(Boolean).join(" @ ")}`);
+
+  if (!shows.includes("name")) warnings.push("Your name isn't in the top third of page 1");
+  if (!firstRole && view.work.length) warnings.push("No experience in the top third: the header and summary take all the space. Shorten the summary or use a denser theme");
+  if (summaryWords > 60) warnings.push(`Summary is ${summaryWords} words; at a glance, 2 lines read better than 5`);
+  return { shows, firstRole: firstRole ? [firstRole.position, firstRole.name].filter(Boolean).join(" @ ") : undefined, warnings };
+}

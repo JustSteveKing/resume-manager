@@ -176,4 +176,5 @@ export type Resume = z.infer<typeof Resume>;
 export type Basics = z.infer<typeof Basics>;
 export type Work = z.infer<typeof Work>;
 export type Skill = z.infer<typeof Skill>;
+export type Project = z.infer<typeof Project>;
 export type Source = z.infer<typeof Source>;

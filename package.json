@@ -3,15 +3,20 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.3.0"
   },
   "peerDependencies": {
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@clack/prompts": "^1.8.1",
+    "@anthropic-ai/sdk": "^0.132.0",
+    "@napi-rs/canvas": "^1.0.10",
+    "@opentui/core": "^0.5.15",
+    "@opentui/react": "^0.5.15",
     "@tabstack/sdk": "^2.8.6",
     "puppeteer": "^25.12.0",
+    "react": "^19.3.0",
     "unpdf": "^1.8.1",
     "zod": "^4.6.5"
   },

@@ -3,13 +3,14 @@ import puppeteer, { type Browser } from "puppeteer";
 import type { Resume } from "../schema.ts";
 import { prune } from "../store.ts";
 import { applyVariant, tighten, viewToResume, type Variant } from "../variants.ts";
-import { checkAts, pdfPages, type AtsReport } from "./ats.ts";
+import { checkAts, firstGlance, pdfPages, type AtsReport, type Glance } from "./ats.ts";
 import type { ResumeView } from "./blocks.ts";
 import { renderHtml } from "./html.ts";
 import { renderText } from "./text.ts";
+import { renderLinkedIn } from "../linkedin.ts";
 import { THEMES, themeById, type Theme } from "./themes.ts";
 
-export type Format = "pdf" | "html" | "json" | "text";
+export type Format = "pdf" | "html" | "json" | "text" | "linkedin";
 export type PaperSize = "A4" | "Letter";
 
 export const OUT_DIR = process.env.RESUME_OUT_DIR ?? "dist";
@@ -59,6 +60,8 @@ export interface PdfResult {
   fitted: string[];
   overTarget: boolean;
   ats?: AtsReport;
+  /** What the top third of page 1 shows (with the ATS check). */
+  glance?: Glance;
 }
 
 export interface ExportResult {
@@ -103,6 +106,7 @@ export async function exportResume(req: ExportRequest, renderer = new PdfRendere
         file, theme: theme.id, pages, fitted,
         overTarget: !!target && pages > target,
         ats: req.ats ? await checkAts(pdf, themed) : undefined,
+        glance: req.ats ? await firstGlance(pdf, themed) : undefined,
       });
       // Other formats follow the content of the first (fitted) theme so they match the PDF.
       if (theme === themes[0]) view = themed;
@@ -119,6 +123,11 @@ export async function exportResume(req: ExportRequest, renderer = new PdfRendere
     const r = viewToResume(view);
     const { pdf, sources, ...meta } = r.meta ?? {}; // tool settings stay out of the shareable export
     await Bun.write(file, JSON.stringify(prune({ ...r, meta }), null, 2) + "\n");
+    files.push(file);
+  }
+  if (req.formats.includes("linkedin")) {
+    const file = join(OUT_DIR, `${base}-linkedin.md`);
+    await Bun.write(file, renderLinkedIn(view) + "\n");
     files.push(file);
   }
   if (req.formats.includes("text")) {
