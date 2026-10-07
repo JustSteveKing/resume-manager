@@ -9,19 +9,19 @@ Build, maintain, tailor and export a [JSON Resume](https://jsonresume.org/schema
 ```sh
 bun install
 bunx puppeteer browsers install chrome   # Bun skips postinstall, so fetch Chrome for PDF export
-bun link                                 # installs the `resume` command
-resume init ~/Documents/resume           # where your resume.json, variants and applications live
-resume                                   # full-screen TUI, from any folder
-resume doctor --live                     # check everything is set up (free checks)
+bun link                                 # installs the `cv` command
+cv init ~/Documents/resume               # where your resume.json, variants and applications live
+cv                                       # full-screen TUI, from any folder
+cv doctor --live                         # check everything is set up (free checks)
 ```
 
-API keys go in **Settings** (in the TUI) or `resume config key <tabstack|anthropic|github> <key>`. They're stored in `~/.config/resume-manager/config.json` (owner-only), never in the repo. A `.env` in your resume folder, or exported environment variables, also work and take precedence.
+API keys go in **Settings** (in the TUI) or `cv config key <tabstack|anthropic|github> <key>`. They're stored in `~/.config/resume-manager/config.json` (owner-only), never in the repo. A `.env` in your resume folder, or exported environment variables, also work and take precedence.
 
-**Which folder is used:** `RESUME_HOME` if set, else the current folder if it has a `resume.json`, else the folder from `resume init`. `resume where` shows the paths in use. Inside the repo, `bun start` still works as before.
+**Which folder is used:** `RESUME_HOME` if set, else the current folder if it has a `resume.json`, else the folder from `cv init`. `cv where` shows the paths in use. Inside the repo, `bun start` still works as before.
 
 ## The TUI
 
-`bun start` opens a full-screen terminal app (built with [OpenTUI](https://github.com/anomalyco/opentui)):
+`cv` (or `bun start` inside the repo) opens a full-screen terminal app (built with [OpenTUI](https://github.com/anomalyco/opentui)):
 
 ```
 ╭ nav ─────────────╮╭─ Work (14) ─────────────────────────╮╭─ Senior Backend Engineer ─────────╮
@@ -62,23 +62,23 @@ Views: **Preview** (plain-text render of the full resume or any variant; `o` ope
 Everything is available in the TUI. For scripts and CI:
 
 ```sh
-bun start validate [--strict]                 # exit 1 on errors (or warnings with --strict)
-bun start export                              # full resume, last theme used in the TUI
-bun start export --all --format pdf,html,json,text --ats
-bun start export --variant devrel --theme sidebar --pages 2 --fit
-bun start variants                            # list variants
-bun start tailor <job-url> --write            # + --research (~$2), --base <variant>, --name <name>
-bun start refresh [--yes]                     # re-run saved import sources
-bun start skills [--add]                      # suggest skills found in your own resume
-resume scan [--no-ai] [--top 8] [--yes]       # scan your GitHub and GitLab for skills and portfolio
-resume github [user] / resume gitlab [user] [--gitlab-host <host>]   # one forge only
-bun start import <file|url|user> [--yes] [--replace]   # import a JSON Resume or LinkedIn export (dry run without --yes)
-bun start evidence [--all]                    # what backs up each skill
-bun start rewrite "<text>" [--summary]        # writing coach: 3 rewrites that keep your facts
-bun start apps [list|stats|status|followup]   # application tracker
-bun start prep <application>                  # interview prep from a tailored job
-bun start inbox [--yes]                       # new talks, repos and milestones since last time
-bun start help
+cv validate [--strict]                        # exit 1 on errors (or warnings with --strict)
+cv export                                     # full resume, last theme used in the TUI
+cv export --all --format pdf,html,json,text --ats
+cv export --variant devrel --theme sidebar --pages 2 --fit
+cv variants                                   # list variants
+cv tailor <job-url> --write                   # + --research (~$2), --base <variant>, --name <name>
+cv refresh [--yes]                            # re-run saved import sources
+cv skills [--add]                             # suggest skills found in your own resume
+cv scan [--no-ai] [--top 8] [--yes]           # scan your GitHub and GitLab for skills and portfolio
+cv github [user] / cv gitlab [user] [--gitlab-host <host>]   # one forge only
+cv import <file|url|user> [--yes] [--replace]  # import a JSON Resume or LinkedIn export (dry run without --yes)
+cv evidence [--all]                           # what backs up each skill
+cv rewrite "<text>" [--summary]               # writing coach: 3 rewrites that keep your facts
+cv apps [list|stats|status|followup]          # application tracker
+cv prep <application>                         # interview prep from a tailored job
+cv inbox [--yes]                              # new talks, repos and milestones since last time
+cv help
 ```
 
 ## Features
@@ -99,7 +99,7 @@ Scans your resume for technologies and practices you mention but haven't listed 
 Import from any URL (personal site, talks page, author page, GitHub). Tabstack extracts structured entries; you pick which to merge, with duplicates flagged. Save a URL as a **source** and **Refresh sources** later re-runs it and shows only new entries. That keeps talks and articles up to date.
 
 ### Spend and budget
-Every Claude call is priced from its actual token usage (by the model that ran, since fallbacks can switch models) and logged in `.cache/spend.json`. Tabstack calls are counted; its SDK publishes no per-call prices, so Extract and Generate show as *unpriced*, and Research is priced at the documented ~$2 fast rate. Set a monthly cap with `resume config budget 10` or in Settings: a priced call that would exceed it is refused with a clear message. `resume spend` shows the month so far.
+Every Claude call is priced from its actual token usage (by the model that ran, since fallbacks can switch models) and logged in `.cache/spend.json`. Tabstack calls are counted; its SDK publishes no per-call prices, so Extract and Generate show as *unpriced*, and Research is priced at the documented ~$2 fast rate. Set a monthly cap with `cv config budget 10` or in Settings: a priced call that would exceed it is refused with a clear message. `cv spend` shows the month so far.
 
 ### AI writing help
 The writing features use **Claude** (`claude-opus-5-5`) when `ANTHROPIC_API_KEY` or an `ant auth login` profile is present, and fall back to Tabstack `generate` otherwise (force one with `RESUME_AI=claude|tabstack`). Answers are cached by request in `.cache/ai/`, so repeating a request is free. Every feature has the same rule: **any number the model writes must already be in your facts**; anything else is dropped and reported.
@@ -140,7 +140,7 @@ The CLI does a dry run unless you pass `--yes`.
 ### GitHub & GitLab scan
 Builds evidence-backed Skills and Projects from your GitHub and GitLab (gitlab.com or self-hosted), using the GitHub and GitLab profiles in `resume.json` by default. Accounts are merged: a project on both (a mirror) counts once, keeping the more popular copy, and write-ups say where the stars are ("… on GitLab").
 
-**GitLab notes:** works without a token for public projects, but GitLab then hides fork and archive flags, so forks can't be told apart from originals. Add a GitLab token in Settings (or `glab auth login`) for accurate results and private projects. For self-hosted GitLab, use your instance URL in the profile, or set the host in Settings / `resume config gitlab-host <url>`.
+**GitLab notes:** works without a token for public projects, but GitLab then hides fork and archive flags, so forks can't be told apart from originals. Add a GitLab token in Settings (or `glab auth login`) for accurate results and private projects. For self-hosted GitLab, use your instance URL in the profile, or set the host in Settings / `cv config gitlab-host <url>`.
 
 Steps:
 

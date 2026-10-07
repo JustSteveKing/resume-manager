@@ -21,7 +21,8 @@
     "zod": "^4.6.5"
   },
   "bin": {
-    "resume": "src/cli.ts"
+    "cv": "src/cli.ts",
+    "resume-manager": "src/cli.ts"
   },
   "scripts": {
     "start": "bun src/cli.ts",

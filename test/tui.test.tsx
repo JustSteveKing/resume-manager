@@ -446,7 +446,7 @@ describe("TUI", () => {
   test("inbox view shows an empty state with how to schedule it", async () => {
     const ui = await setup();
     await ui.open("Inbox");
-    expect(ui.frame()).toContain("bun start inbox");
+    expect(ui.frame()).toContain("cv inbox");
   });
 
   test("nav groups the new tools", async () => {

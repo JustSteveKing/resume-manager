@@ -11,7 +11,7 @@ import { hasErrors, lint } from "./lint.ts";
 import { load, RESUME_PATH } from "./store.ts";
 import { tabstack } from "./tabstack.ts";
 
-// `resume doctor` / Settings: is everything set up, and how do I fix what isn't?
+// `cv doctor` / Settings: is everything set up, and how do I fix what isn't?
 
 export type CheckStatus = "ok" | "warn" | "error" | "info";
 
@@ -67,19 +67,19 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<Check[]> {
   try {
     await mkdir(home, { recursive: true });
     await access(home, constants.W_OK);
-    add({ id: "home", label: "Data folder", status: "ok", detail: `${home} (${source})`, fix: source === "default" ? "Run `resume init <folder>` so `resume` works from anywhere" : undefined });
+    add({ id: "home", label: "Data folder", status: "ok", detail: `${home} (${source})`, fix: source === "default" ? "Run `cv init <folder>` so `cv` works from anywhere" : undefined });
   } catch {
-    add({ id: "home", label: "Data folder", status: "error", detail: `${home} isn't writable`, fix: "Run `resume init <folder>` with a folder you own" });
+    add({ id: "home", label: "Data folder", status: "error", detail: `${home} isn't writable`, fix: "Run `cv init <folder>` with a folder you own" });
   }
 
   // Resume
   if (!(await exists(RESUME_PATH))) {
-    add({ id: "resume", label: "Resume", status: "warn", detail: `No resume.json at ${RESUME_PATH}`, fix: "Open the TUI (`resume`) and import or start one" });
+    add({ id: "resume", label: "Resume", status: "warn", detail: `No resume.json at ${RESUME_PATH}`, fix: "Open the TUI (`cv`) and import or start one" });
   } else {
     try {
       const issues = lint(await load());
       const warns = issues.filter((i) => i.level === "warn").length;
-      add({ id: "resume", label: "Resume", status: hasErrors(issues) ? "error" : warns ? "warn" : "ok", detail: hasErrors(issues) ? "has errors" : `valid${warns ? `, ${warns} warning(s)` : ""}`, fix: warns || hasErrors(issues) ? "See Issues, or `resume validate`" : undefined });
+      add({ id: "resume", label: "Resume", status: hasErrors(issues) ? "error" : warns ? "warn" : "ok", detail: hasErrors(issues) ? "has errors" : `valid${warns ? `, ${warns} warning(s)` : ""}`, fix: warns || hasErrors(issues) ? "See Issues, or `cv validate`" : undefined });
     } catch (e) {
       add({ id: "resume", label: "Resume", status: "error", detail: e instanceof Error ? e.message.split("\n")[0]! : String(e), fix: "Fix resume.json, or restore a backup" });
     }

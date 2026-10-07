@@ -10,7 +10,7 @@ import { sectionByKey, type SectionKey } from "./sections.ts";
 import { isDuplicate, refreshSources, sourceLabel } from "./sources.ts";
 
 // Brag-doc inbox: what changed since last time (new talks, new repos, star milestones),
-// as suggestions you accept or dismiss. Run it on a schedule with `bun start inbox`.
+// as suggestions you accept or dismiss. Run it on a schedule with `cv inbox`.
 
 const INBOX_DIR = () => join(CACHE_DIR, "inbox");
 const MILESTONES = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];

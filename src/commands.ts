@@ -28,11 +28,11 @@ import { listVariants, loadVariant, saveVariant, variantSlug, type Variant } fro
 export const HELP = `resume-manager
 
 Usage:
-  resume                          Interactive TUI (or \`bun start\` inside the repo)
-  resume <command> [options]
+  cv                              Interactive TUI (or \`bun start\` inside the repo)
+  cv <command> [options]
 
 Setup:
-  init [folder]                   Remember where your resume lives, so \`resume\` works from any folder
+  init [folder]                   Remember where your resume lives, so \`cv\` works from any folder
   where                           Show which folder and files are in use
   doctor [--live] [--tabstack]    Check setup; --live tests keys (free), --tabstack also tests Tabstack (paid call)
   config ai <auto|claude|tabstack>
@@ -223,7 +223,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
 
     case "tailor": {
       const url = positionals[0];
-      if (!url || !URL.canParse(url)) throw new Error("Usage: bun start tailor <job-url>");
+      if (!url || !URL.canParse(url)) throw new Error("Usage: cv tailor <job-url>");
       const resume = await load();
       print(`Extracting job posting from ${url}…`);
       const job = await extractJob(url);
@@ -261,7 +261,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
       const files = await saveApplication(name, { url, job, cov, tailored, research });
       print(`\nWrote variants/${name}.json`);
       files.forEach((f) => print(`Wrote ${f}`));
-      print(`\nNext: bun start export --variant ${name} --ats`);
+      print(`\nNext: cv export --variant ${name} --ats`);
       return 0;
     }
 
@@ -286,7 +286,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
         }
       }
       await save(resume); // records lastRun even when nothing is added
-      if (added) print(`Added ${added} entr${added === 1 ? "y" : "ies"}. Run "bun start validate" to check ordering.`);
+      if (added) print(`Added ${added} entr${added === 1 ? "y" : "ies"}. Run "cv validate" to check ordering.`);
       else if (!values.yes && results.some((r) => r.kind === "items" && r.fresh.length)) print("Re-run with --yes to add them.");
       return 0;
     }
@@ -309,7 +309,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
 
     case "import": {
       const input = positionals[0];
-      if (!input) throw new Error("Usage: bun start import <file|url|registry-username> [--yes] [--replace]");
+      if (!input) throw new Error("Usage: cv import <file|url|registry-username> [--yes] [--replace]");
       const report = await importJsonResume(input);
       const current = await load();
       const plan = planMerge(current, report.resume);
@@ -326,7 +326,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
         await save(current);
         const added = plan.add.filter((a) => !a.similar).length;
         const skipped = plan.add.length - added;
-        print(`\nMerged ${added} entr${added === 1 ? "y" : "ies"} into resume.json${skipped ? `; skipped ${skipped} possible duplicate(s) (choose them in the TUI)` : ""}. Run "bun start validate" to check ordering.`);
+        print(`\nMerged ${added} entr${added === 1 ? "y" : "ies"} into resume.json${skipped ? `; skipped ${skipped} possible duplicate(s) (choose them in the TUI)` : ""}. Run "cv validate" to check ordering.`);
       }
       return 0;
     }
@@ -336,8 +336,8 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
       await mkdir(home, { recursive: true });
       await updateConfig((c) => void (c.home = home));
       print(`Your resume folder is ${home}`);
-      print(`Saved in ${CONFIG_FILE}. Run \`resume\` from anywhere.`);
-      if (!(await Bun.file(`${home}/resume.json`).exists())) print("No resume.json there yet: run `resume` to import or start one.");
+      print(`Saved in ${CONFIG_FILE}. Run \`cv\` from anywhere.`);
+      if (!(await Bun.file(`${home}/resume.json`).exists())) print("No resume.json there yet: run `cv` to import or start one.");
       print("\nInstall the command once with: bun link   (inside the resume-manager repo)");
       return 0;
     }
@@ -370,16 +370,16 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
     case "config": {
       const [what, a, b] = positionals;
       if (what === "ai") {
-        if (!["auto", "claude", "tabstack"].includes(a ?? "")) throw new Error("Usage: resume config ai <auto|claude|tabstack>");
+        if (!["auto", "claude", "tabstack"].includes(a ?? "")) throw new Error("Usage: cv config ai <auto|claude|tabstack>");
         await updateConfig((c) => void (c.ai = a as "auto"));
         print(`AI: ${a}`);
       } else if (what === "budget") {
         if (a === "off") await updateConfig((c) => void delete c.budget);
         else if (a && Number(a) > 0) await updateConfig((c) => void (c.budget = { monthlyUsd: Number(a) }));
-        else throw new Error("Usage: resume config budget <usd|off>");
+        else throw new Error("Usage: cv config budget <usd|off>");
         print(a === "off" ? "Budget removed" : `Monthly budget: $${Number(a).toFixed(2)}`);
       } else if (what === "key") {
-        if (!["tabstack", "anthropic", "github", "gitlab"].includes(a ?? "") || !b) throw new Error("Usage: resume config key <tabstack|anthropic|github|gitlab> <value|off>");
+        if (!["tabstack", "anthropic", "github", "gitlab"].includes(a ?? "") || !b) throw new Error("Usage: cv config key <tabstack|anthropic|github|gitlab> <value|off>");
         await updateConfig((c) => {
           c.keys ??= {};
           if (b === "off") delete c.keys[a as "tabstack"];
@@ -387,7 +387,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
         });
         print(`${a} key: ${b === "off" ? "removed" : maskKey(b)} (stored in ${CONFIG_FILE}, owner-only)`);
       } else if (what === "gitlab-host") {
-        if (!a) throw new Error("Usage: resume config gitlab-host <https://gitlab.example.com|off>");
+        if (!a) throw new Error("Usage: cv config gitlab-host <https://gitlab.example.com|off>");
         await updateConfig((c) => {
           if (a === "off") delete c.gitlab;
           else c.gitlab = { host: a };
@@ -412,7 +412,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
       const gh = await cachedRepos(resume);
       const all = evidenceMap(resume, gh);
       const shown = values.all ? all : all.filter((e) => e.status !== "ok" && e.status !== "strong");
-      if (!gh) print("(No repository scan cached; run `resume scan --no-ai` to include GitHub/GitLab evidence.)\n");
+      if (!gh) print("(No repository scan cached; run `cv scan --no-ai` to include GitHub/GitLab evidence.)\n");
       for (const status of ["unsupported", "stale", "weak", "unlisted", "ok", "strong"] as const) {
         const group = shown.filter((e) => e.status === status);
         if (!group.length) continue;
@@ -425,7 +425,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
 
     case "rewrite": {
       const text = positionals.join(" ").trim();
-      if (!text) throw new Error('Usage: bun start rewrite "<highlight or summary>" [--summary]');
+      if (!text) throw new Error('Usage: cv rewrite "<highlight or summary>" [--summary]');
       const ai = await getAI(await load());
       const options = await rewrite(ai, text, values.summary ? "summary" : "highlight");
       if (!options.length) print("No rewrite kept the original facts.");
@@ -437,7 +437,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
       const [sub = "list", slug, arg] = positionals;
       const apps = await listApplications();
       if (sub === "list") {
-        if (!apps.length) print("No applications yet. Run `bun start tailor <job-url>` to create one.");
+        if (!apps.length) print("No applications yet. Run `cv tailor <job-url>` to create one.");
         const due = new Set(followUpsDue(apps).map((a) => a.slug));
         for (const a of apps) {
           print(`${due.has(a.slug) ? "⏰ " : "   "}${a.slug.padEnd(36)} ${a.status.padEnd(10)} ${[a.company, a.title].filter(Boolean).join(" — ")}${a.followUp ? ` (follow up ${a.followUp})` : ""}`);
@@ -456,7 +456,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
         return 0;
       }
       const app = slug ? await loadApplication(slug) : undefined;
-      if (!app) throw new Error(`No application "${slug ?? ""}". See \`bun start apps\`.`);
+      if (!app) throw new Error(`No application "${slug ?? ""}". See \`cv apps\`.`);
       if (sub === "status") {
         if (!STATUSES.includes(arg as Status)) throw new Error(`Status must be one of: ${STATUSES.join(", ")}`);
         const next = await setStatus(app, arg as Status);
@@ -475,7 +475,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
 
     case "prep": {
       const slug = positionals[0];
-      if (!slug) throw new Error("Usage: bun start prep <application-slug>");
+      if (!slug) throw new Error("Usage: cv prep <application-slug>");
       const resume = await load();
       const res = await prepForApplication(await getAI(resume), resume, slug);
       res.questions.forEach((q, i) => print(`${i + 1}. ${q.question}${q.gap ? "  ⚠ no evidence yet" : `\n   ← ${q.evidence[0]}`}`));
@@ -501,7 +501,7 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
           await resolveSuggestion(s.id, false);
         }
         await save(resume);
-        print(`\nAccepted ${pending.length}. Run "bun start validate" to check ordering.`);
+        print(`\nAccepted ${pending.length}. Run "cv validate" to check ordering.`);
       } else print("\nReview in the TUI (Inbox), or re-run with --yes to accept all.");
       return 0;
     }
@@ -515,11 +515,11 @@ export async function runCommand(argv: string[], env?: { home: string; source: H
       let accounts: Account[];
       if (command === "github") {
         const username = positionals[0] ?? fromProfiles.find((a) => a.forge === "github")?.username;
-        if (!username) throw new Error("No GitHub profile in resume.json. Usage: resume github <username>");
+        if (!username) throw new Error("No GitHub profile in resume.json. Usage: cv github <username>");
         accounts = [{ forge: "github", username }];
       } else if (command === "gitlab") {
         const username = positionals[0] ?? fromProfiles.find((a) => a.forge === "gitlab")?.username;
-        if (!username) throw new Error("No GitLab profile in resume.json. Usage: resume gitlab <username> [--gitlab-host gitlab.example.com]");
+        if (!username) throw new Error("No GitLab profile in resume.json. Usage: cv gitlab <username> [--gitlab-host gitlab.example.com]");
         accounts = [{ forge: "gitlab", username, host }];
       } else {
         accounts = [

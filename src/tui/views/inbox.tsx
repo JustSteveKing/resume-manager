@@ -61,7 +61,7 @@ export function InboxView(props: { active: boolean; width: number; height: numbe
       <box flexDirection="column" paddingLeft={1} paddingRight={1} height={props.height - 2}>
         <box flexDirection="column" height={bodyH}>
           {!items.length &&
-            wrap("No suggestions. Press r to check your saved sources and GitHub for new talks, articles, repos and star milestones. Schedule it with: bun start inbox", w).map((l, i) => (
+            wrap("No suggestions. Press r to check your saved sources and GitHub for new talks, articles, repos and star milestones. Schedule it with: cv inbox", w).map((l, i) => (
               <Line key={i} text={l} fg={C.dim} />
             ))}
           {items.slice(start, start + bodyH).map((s, j) => {

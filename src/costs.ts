@@ -94,7 +94,7 @@ export async function checkBudget(estimateUsd: number, what: string) {
   const s = await monthSpend();
   if (s.budget !== undefined && s.usd + estimateUsd > s.budget) {
     throw new BudgetError(
-      `${what} (≈${formatUsd(estimateUsd)}) would exceed your monthly budget: ${formatUsd(s.usd)} of ${formatUsd(s.budget)} used. Raise it in Settings or with \`resume config budget <usd>\`.`,
+      `${what} (≈${formatUsd(estimateUsd)}) would exceed your monthly budget: ${formatUsd(s.usd)} of ${formatUsd(s.budget)} used. Raise it in Settings or with \`cv config budget <usd>\`.`,
     );
   }
 }

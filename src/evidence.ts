@@ -83,7 +83,7 @@ function supportsForm(text: string, skill: string): boolean {
   return words.every((w) => have.has(stem(w)));
 }
 
-/** Cached GitHub/GitLab scans for the resume's accounts, merged (run `resume scan` to create them). */
+/** Cached GitHub/GitLab scans for the resume's accounts, merged (run `cv scan` to create them). */
 export async function cachedRepos(r: Resume): Promise<GitHubAnalysis | undefined> {
   const datas: GitHubData[] = [];
   for (const a of accountsFromResume(r)) {
