@@ -8,11 +8,23 @@ import { WRITING_RULES, type AI } from "./index.ts";
 
 export type TextKind = "highlight" | "summary" | "role-summary";
 
-const STYLES = {
-  shorter: "Shorter: same facts, half the words",
-  result: "Result first: open with the outcome, then how",
-  xyz: "Did X, measured by Y, by doing Z",
-} as const;
+type Style = "shorter" | "result" | "xyz";
+
+/** Style briefs per kind: a profile summary isn't a bullet, so it gets profile-shaped styles. */
+const STYLES: Record<"bullet" | "profile", Record<Style, string>> = {
+  bullet: {
+    shorter: "Shorter: same facts, half the words",
+    result: "Result first: open with the outcome, then how",
+    xyz: "Did X, measured by Y, by doing Z. If the text has no measure, name the concrete change instead; never pad one in",
+  },
+  profile: {
+    shorter: "Shorter: same facts, about half the words",
+    result: "Lead with the strongest credential: open with what most sets this person apart",
+    xyz: "Focused: what they do, for whom, and the proof, in two sentences",
+  },
+};
+
+const PROFILE_RULES = `- This is a profile summary: start with who the person is (e.g. "Developer educator and API mentor…"), never with an imperative verb ("Lead…", "Shape…"). No "I".`;
 
 const Rewrites = z.object({
   options: z
@@ -21,7 +33,7 @@ const Rewrites = z.object({
 });
 
 export interface Rewrite {
-  style: keyof typeof STYLES;
+  style: Style;
   label: string;
   text: string;
 }
@@ -32,17 +44,18 @@ const roleContext = (w?: Work) =>
 /** 2-3 rewrites of one piece of text. Any rewrite that introduces a number not in the original is dropped. */
 export async function rewrite(ai: AI, text: string, kind: TextKind, role?: Work): Promise<Rewrite[]> {
   const limit = kind === "highlight" ? "under 25 words" : kind === "role-summary" ? "under 35 words" : "2-3 sentences, under 60 words";
+  const styles = STYLES[kind === "summary" ? "profile" : "bullet"];
   const res = await ai.json({
     schema: Rewrites,
-    system: `You are an expert resume editor. Rewrite the text in three styles.\n${WRITING_RULES}\n- Each rewrite: ${limit}, one ${kind === "highlight" ? "bullet, no leading symbol" : "paragraph"}.`,
-    prompt: `${roleContext(role)}\nText (${kind}):\n${text}\n\nStyles:\n${Object.entries(STYLES).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`,
+    system: `You are an expert resume editor. Rewrite the text in three styles.\n${WRITING_RULES}\n- Each rewrite: ${limit}, one ${kind === "highlight" ? "bullet, no leading symbol" : "paragraph"}.${kind === "summary" ? `\n${PROFILE_RULES}` : ""}`,
+    prompt: `${roleContext(role)}\nText (${kind}):\n${text}\n\nStyles:\n${Object.entries(styles).map(([k, v]) => `- ${k}: ${v}`).join("\n")}`,
   });
   const facts = `${text}\n${roleContext(role)}`;
   const seen = new Set<string>();
   return res.options
     .filter((o) => o.text.trim() && o.text.trim() !== text.trim() && isGrounded(o.text, facts))
     .filter((o) => !seen.has(o.style) && seen.add(o.style))
-    .map((o) => ({ style: o.style, label: STYLES[o.style], text: o.text.trim().replace(/^[-•*]\s*/, "") }));
+    .map((o) => ({ style: o.style, label: styles[o.style].split(".")[0]!, text: o.text.trim().replace(/^[-•*]\s*/, "") }));
 }
 
 // ---------- interviewer ----------

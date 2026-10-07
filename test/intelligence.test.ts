@@ -8,6 +8,7 @@ import { fakeAI } from "./fixtures.ts";
 import { interviewPrep, prepMarkdown } from "../src/ai/prep.ts";
 import { ensureApplication, followUpsDue, learn, listApplications, setStatus, APPLICATIONS_DIR } from "../src/applications.ts";
 import { consistency } from "../src/consistency.ts";
+import { lint, overlap } from "../src/lint.ts";
 import { evidenceMap, skillForms, stem, supports } from "../src/evidence.ts";
 import { firstGlance } from "../src/export/ats.ts";
 import { PdfRenderer } from "../src/export/index.ts";
@@ -281,4 +282,18 @@ describe("first glance (renders a PDF)", () => {
     const long = await firstGlance(await renderer.render(view, THEMES[0]!, "A4"), view);
     expect(long.warnings.some((w) => w.startsWith("Summary is 72 words"))).toBe(true);
   }, 30_000);
+});
+
+describe("near-duplicate highlights", () => {
+  test("flags rewrites left next to their originals, not merely related bullets", () => {
+    expect(overlap("Cut build and release times and sharply reduce failed deployments by introducing standardised controls across the CI/CD pipeline", "Shorten build and release times and sharply reduce failed deployments by reworking CI/CD pipelines and introducing standardised release controls")).toBeGreaterThanOrEqual(0.6);
+    expect(overlap("Lead and mentor a team of 10 engineers as fractional CTO, guiding hiring, roadmap planning and product direction", "Guide hiring, roadmap planning and product direction as fractional CTO, mentoring a team of 10 engineers")).toBeGreaterThanOrEqual(0.6);
+    expect(overlap("Designed the public API", "Mentored two junior engineers")).toBeLessThan(0.6);
+    const r = Resume.parse({
+      skills: [{ name: "x" }],
+      work: [{ name: "Acme", position: "Lead", startDate: "2020", highlights: ["Cut release times by reworking the CI/CD pipeline", "Shorten release times by reworking CI/CD pipelines", "Hired 4 engineers"] }],
+    });
+    const msgs = lint(r).map((i) => i.message).filter((m) => m.includes("say nearly the same thing"));
+    expect(msgs).toHaveLength(1);
+  });
 });

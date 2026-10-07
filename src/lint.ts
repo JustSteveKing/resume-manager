@@ -21,6 +21,27 @@ export interface Issue {
 const WEAK_OPENERS = /^(responsible for|helped|assisted|worked on|involved in|tasked with|duties included|participated in)\b/i;
 
 const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+
+const STOP = new Set(["with", "from", "into", "that", "this", "their", "across", "through", "over", "more", "using", "while", "team", "teams"]);
+/** Meaningful word roots, for spotting two highlights that say the same thing in different words. */
+const roots = (s: string) =>
+  new Set(
+    s
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 3 && !STOP.has(w))
+      .map((w) => w.replace(/(ing|ed|es|s)$/, "")),
+  );
+/** Share of the shorter highlight's roots that also appear in the other (0-1). */
+export function overlap(a: string, b: string): number {
+  const x = roots(a);
+  const y = roots(b);
+  const [small, big] = x.size <= y.size ? [x, y] : [y, x];
+  if (!small.size) return 0;
+  let shared = 0;
+  for (const w of small) if (big.has(w)) shared++;
+  return shared / small.size;
+}
 const hasNumber = (s: string) => /\d/.test(s);
 
 export const LIMITS = { highlightWords: 30, roleSummaryWords: 40, summaryWords: 80, highlightsPerRole: 6 };
@@ -81,6 +102,15 @@ export function lint(r: Resume): Issue[] {
       const prev = seen.get(key);
       if (prev) add("warn", "writing", `${name}: duplicate highlight (also under ${prev})`, at);
       else seen.set(key, name);
+    }
+    // Near-duplicates within a role: usually a rewrite added next to the original instead of replacing it.
+    for (let i = 0; i < hs.length; i++) {
+      for (let j = i + 1; j < hs.length; j++) {
+        if (overlap(hs[i]!, hs[j]!) >= 0.6) {
+          const cut = (h: string) => (h.length > 40 ? `${h.slice(0, 39)}…` : h);
+          add("warn", "writing", `${name}: "${cut(hs[i]!)}" and "${cut(hs[j]!)}" say nearly the same thing; keep the stronger one`, at);
+        }
+      }
     }
   });
 
