@@ -40,22 +40,69 @@ export const WRITING_RULES = `Rules:
 // ---------- Ollama (local, default) ----------
 
 export const OLLAMA_MODEL = "qwen3:8b";
-export const ollamaHost = () => (process.env.OLLAMA_HOST ?? "http://localhost:11434").replace(/\/$/, "");
-export const ollamaModel = () => process.env.OLLAMA_MODEL || OLLAMA_MODEL;
+export const OLLAMA_HOST = "http://localhost:11434";
 
-/** Models Ollama has pulled, or undefined when it isn't running. Local and free, so safe to probe. */
-export async function ollamaModels(host = ollamaHost()): Promise<string[] | undefined> {
+/**
+ * Accept OLLAMA_HOST the way Ollama does ("0.0.0.0", "127.0.0.1:11434", "gpu-box"): add the scheme and
+ * default port, and connect locally when it names the listen-on-everything address.
+ */
+export function normalizeOllamaHost(raw: string | undefined): string {
+  const value = raw?.trim();
+  if (!value) return OLLAMA_HOST;
   try {
-    const res = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(1000) });
-    if (!res.ok) return undefined;
-    return ((await res.json()) as { models?: { name: string }[] }).models?.map((m) => m.name) ?? [];
+    // Like Ollama: a bare host gets port 11434; an explicit http:// or https:// keeps its usual port.
+    const bare = !/^https?:\/\//i.test(value);
+    const url = new URL(bare ? `http://${value}` : value);
+    if (url.hostname === "0.0.0.0" || url.hostname === "[::]") url.hostname = "127.0.0.1";
+    if (bare && !/^(\[[^\]]*\]|[^/]*?):\d+(\/|$)/.test(value)) url.port = "11434";
+    return url.origin + url.pathname.replace(/\/+$/, "");
   } catch {
-    return undefined;
+    return value.replace(/\/+$/, "");
   }
+}
+
+export const ollamaHost = () => normalizeOllamaHost(process.env.OLLAMA_HOST);
+export const ollamaModel = () => process.env.OLLAMA_MODEL?.trim() || OLLAMA_MODEL;
+
+/**
+ * Is Ollama there? "down" (nothing listening: fine to use another AI) is kept apart from "unresponsive"
+ * (it's there but slow or failing), so a busy Ollama never quietly hands work to a paid model.
+ */
+export type OllamaStatus = { state: "running"; models: string[] } | { state: "down" } | { state: "unresponsive"; reason: string };
+
+const probes = new Map<string, { at: number; status: Promise<OllamaStatus> }>();
+const PROBE_TTL = 15_000;
+
+/** Local and free, so safe to call often; getAI reuses a result for 15s, the doctor asks fresh. */
+export function probeOllama(host = ollamaHost(), opts: { fresh?: boolean; timeoutMs?: number } = {}): Promise<OllamaStatus> {
+  const hit = probes.get(host);
+  if (!opts.fresh && hit && Date.now() - hit.at < PROBE_TTL) return hit.status;
+  const status = (async (): Promise<OllamaStatus> => {
+    try {
+      const res = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(opts.timeoutMs ?? 3000) });
+      if (!res.ok) return { state: "unresponsive", reason: `HTTP ${res.status}` };
+      return { state: "running", models: ((await res.json()) as { models?: { name: string }[] }).models?.map((m) => m.name) ?? [] };
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "TimeoutError") return { state: "unresponsive", reason: "timed out" };
+      return { state: "down" };
+    }
+  })();
+  probes.set(host, { at: Date.now(), status });
+  return status;
 }
 
 /** "qwen3" is pulled as "qwen3:latest". */
 export const hasModel = (models: string[], model: string) => models.some((m) => m === model || m === `${model}:latest`);
+
+/**
+ * Ollama's default context is small and it silently drops the *start* of a long prompt (the rules).
+ * Size it for the request: ~3 chars per token for prompt and schema, plus room for the answer.
+ */
+function contextFor(req: AiRequest<z.ZodType>): number {
+  const chars = req.system.length + req.prompt.length + JSON.stringify(z.toJSONSchema(req.schema)).length;
+  const tokens = Math.ceil(chars / 3) + 4096;
+  return Math.min(32_768, Math.max(8192, Math.ceil(tokens / 2048) * 2048));
+}
 
 /** Local model via Ollama's chat API, with the schema as a structured-output format. No spend to record. */
 class OllamaAI implements AI {
@@ -77,7 +124,7 @@ class OllamaAI implements AI {
           // Thinking models (qwen3…) are many times slower with it and the schema keeps answers on track.
           think: false,
           format: z.toJSONSchema(req.schema),
-          options: { temperature: 0.4 },
+          options: { temperature: 0.4, num_ctx: contextFor(req) },
           messages: [
             { role: "system", content: req.system },
             { role: "user", content: req.prompt },
@@ -189,6 +236,9 @@ async function hasClaudeCredentials(): Promise<boolean> {
   }
 }
 
+/** No AI is set up at all (as opposed to one that's set up but failing). Callers with a fallback catch only this. */
+export class NoAIError extends Error {}
+
 export type AiChoice = "auto" | "ollama" | "claude" | "tabstack";
 
 /**
@@ -199,10 +249,13 @@ export type AiChoice = "auto" | "ollama" | "claude" | "tabstack";
 export async function getAI(r?: Resume, choice: AiChoice = (process.env.RESUME_AI as AiChoice) || "auto"): Promise<AI> {
   if (choice === "ollama") return cached(new OllamaAI());
   if (choice === "auto") {
-    const models = await ollamaModels();
-    if (models) {
-      // Ollama is running but the model isn't pulled: say so rather than quietly switching to a paid model.
-      if (!hasModel(models, ollamaModel())) {
+    const ollama = await probeOllama();
+    // Ollama is there but slow, failing or missing the model: say so rather than quietly switching to a paid model.
+    if (ollama.state === "unresponsive") {
+      throw new Error(`Ollama at ${ollamaHost()} isn't responding (${ollama.reason}). Try again, or choose another AI in Settings.`);
+    }
+    if (ollama.state === "running") {
+      if (!hasModel(ollama.models, ollamaModel())) {
         throw new Error(`Ollama is running but ${ollamaModel()} isn't pulled. Run \`ollama pull ${ollamaModel()}\`, set another model in Settings, or choose Claude.`);
       }
       return cached(new OllamaAI());
@@ -211,7 +264,7 @@ export async function getAI(r?: Resume, choice: AiChoice = (process.env.RESUME_A
   if (choice === "claude" || (choice === "auto" && (await hasClaudeCredentials()))) return cached(new ClaudeAI());
   const url = r?.basics.url ?? r?.basics.profiles?.find((p) => p.url)?.url;
   if ((choice === "tabstack" || choice === "auto") && process.env.TABSTACK_API_KEY && url) return cached(new TabstackAI(url));
-  throw new Error(
+  throw new NoAIError(
     "No AI configured. Start Ollama (`ollama serve`) for a local model, set ANTHROPIC_API_KEY (or run `ant auth login`) for Claude, or TABSTACK_API_KEY plus a website in Basics for Tabstack.",
   );
 }

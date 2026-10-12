@@ -1,7 +1,7 @@
 import type { TextareaRenderable } from "@opentui/core";
 import { useMemo, useRef, useState } from "react";
 import { draftBullets, interviewQuestions, rolesNeedingWork, type Question } from "../../ai/coach.ts";
-import { getAI } from "../../ai/index.ts";
+import { getAI, NoAIError } from "../../ai/index.ts";
 import { formatRange } from "../../dates.ts";
 import type { Intent } from "../commands.ts";
 import { useKeys, useStore } from "../store.tsx";
@@ -24,8 +24,13 @@ export function CoachView(props: { active: boolean; width: number; height: numbe
 
   async function start() {
     if (roleIndex === undefined || !role) return;
-    // Template questions are a fine fallback, so a missing AI key is not an error here.
-    const ai = store.ai ?? (await getAI(store.resume).catch(() => undefined));
+    // Template questions are a fine fallback, so a missing AI key is not an error here; a broken one is.
+    const ai =
+      store.ai ??
+      (await getAI(store.resume).catch((e: Error) => {
+        if (!(e instanceof NoAIError)) store.flash(`${e.message} Using template questions.`, "warn");
+        return undefined;
+      }));
     const questions = (await store.run("Thinking of questions", () => interviewQuestions(ai, role))) ?? [];
     if (!questions.length) return;
     setSession({ role: roleIndex, questions, answers: questions.map(() => ""), at: 0 });

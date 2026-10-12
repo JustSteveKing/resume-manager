@@ -1,6 +1,7 @@
 import type { CommandContext } from "./context.ts";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
+import { normalizeOllamaHost, OLLAMA_MODEL } from "../ai/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, updateConfig } from "../config.ts";
 import { describeSpend, monthSpend } from "../costs.ts";
 import { CHECK_ICON, runDoctor } from "../doctor.ts";
@@ -84,7 +85,7 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
     const c = await loadConfig();
     print(`home     ${c.home ?? "—"}\nai       ${c.ai ?? "auto"}\nbudget   ${c.budget?.monthlyUsd ? `$${c.budget.monthlyUsd}` : "none"}`);
     print(`gitlab   ${c.gitlab?.host ?? "gitlab.com"}`);
-    print(`ollama   ${c.ollama?.model ?? "default model"} at ${c.ollama?.host ?? "localhost:11434"}`);
+    print(`ollama   ${c.ollama?.model ?? OLLAMA_MODEL} at ${normalizeOllamaHost(c.ollama?.host)}`);
     for (const k of ["tabstack", "anthropic", "github", "gitlab"] as const) print(`key      ${k.padEnd(10)} ${maskKey(c.keys?.[k])}`);
   }
   return 0;

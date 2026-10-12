@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { OLLAMA_MODEL } from "../../ai/index.ts";
+import { OLLAMA_HOST, OLLAMA_MODEL } from "../../ai/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, updateConfig, type Config } from "../../config.ts";
 import { describeSpend, monthSpend, type MonthSpend } from "../../costs.ts";
 import { CHECK_ICON, runDoctor, type Check } from "../../doctor.ts";
@@ -64,6 +64,25 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
     };
   };
 
+  /** A config value mirrored into an env var. The environment wins at runtime, so show that, and only unset what Settings set. */
+  const settingRow = (o: { id: string; label: string; env: string; fallback: string; prompt: string; get: (c: Config) => string | undefined; set: (c: Config, v?: string) => void }): Row => {
+    const fromConfig = o.get(config);
+    const env = process.env[o.env];
+    const source = env && env !== fromConfig ? " (environment)" : "";
+    return {
+      id: o.id,
+      label: o.label,
+      value: `${env ?? fromConfig ?? o.fallback}${source}`,
+      edit: async () => {
+        const v = await store.prompt(o.prompt, fromConfig ?? "");
+        if (v === null) return;
+        await save((c) => o.set(c, v.trim() || undefined), `${o.label}: ${v.trim() || o.fallback}`);
+        if (v.trim()) process.env[o.env] = v.trim();
+        else if (process.env[o.env] === fromConfig) delete process.env[o.env];
+      },
+    };
+  };
+
   const rows: Row[] = [
     {
       id: "ai",
@@ -101,53 +120,44 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
     keyRow("anthropic", "Anthropic key"),
     keyRow("github", "GitHub token"),
     keyRow("gitlab", "GitLab token"),
-    {
+    settingRow({
       id: "gitlab-host",
       label: "GitLab host",
-      value: config.gitlab?.host ?? process.env.GITLAB_HOST ?? "gitlab.com",
-      edit: async () => {
-        const v = await store.prompt("GitLab host for self-hosted GitLab (empty for gitlab.com)", config.gitlab?.host ?? "");
-        if (v === null) return;
-        await save((c) => {
-          if (v.trim()) c.gitlab = { host: v.trim() };
-          else delete c.gitlab;
-        }, `GitLab host: ${v.trim() || "gitlab.com"}`);
-        if (v.trim()) process.env.GITLAB_HOST = v.trim();
-        else delete process.env.GITLAB_HOST;
+      env: "GITLAB_HOST",
+      fallback: "gitlab.com",
+      prompt: "GitLab host for self-hosted GitLab (empty for gitlab.com)",
+      get: (c) => c.gitlab?.host,
+      set: (c, v) => {
+        if (v) c.gitlab = { host: v };
+        else delete c.gitlab;
       },
-    },
-    {
+    }),
+    settingRow({
       id: "ollama-model",
       label: "Ollama model",
-      value: config.ollama?.model ?? process.env.OLLAMA_MODEL ?? OLLAMA_MODEL,
-      edit: async () => {
-        const v = await store.prompt(`Local model for writing (empty for ${OLLAMA_MODEL}); pull it with \`ollama pull\``, config.ollama?.model ?? "");
-        if (v === null) return;
-        await save((c) => {
-          c.ollama ??= {};
-          if (v.trim()) c.ollama.model = v.trim();
-          else delete c.ollama.model;
-        }, `Ollama model: ${v.trim() || OLLAMA_MODEL}`);
-        if (v.trim()) process.env.OLLAMA_MODEL = v.trim();
-        else delete process.env.OLLAMA_MODEL;
+      env: "OLLAMA_MODEL",
+      fallback: OLLAMA_MODEL,
+      prompt: `Local model for writing (empty for ${OLLAMA_MODEL}); pull it with \`ollama pull\``,
+      get: (c) => c.ollama?.model,
+      set: (c, v) => {
+        c.ollama ??= {};
+        if (v) c.ollama.model = v;
+        else delete c.ollama.model;
       },
-    },
-    {
+    }),
+    settingRow({
       id: "ollama-host",
       label: "Ollama host",
-      value: config.ollama?.host ?? process.env.OLLAMA_HOST ?? "http://localhost:11434",
-      edit: async () => {
-        const v = await store.prompt("Ollama server (empty for http://localhost:11434)", config.ollama?.host ?? "");
-        if (v === null) return;
-        await save((c) => {
-          c.ollama ??= {};
-          if (v.trim()) c.ollama.host = v.trim();
-          else delete c.ollama.host;
-        }, `Ollama host: ${v.trim() || "http://localhost:11434"}`);
-        if (v.trim()) process.env.OLLAMA_HOST = v.trim();
-        else delete process.env.OLLAMA_HOST;
+      env: "OLLAMA_HOST",
+      fallback: OLLAMA_HOST,
+      prompt: `Ollama server (empty for ${OLLAMA_HOST})`,
+      get: (c) => c.ollama?.host,
+      set: (c, v) => {
+        c.ollama ??= {};
+        if (v) c.ollama.host = v;
+        else delete c.ollama.host;
       },
-    },
+    }),
     {
       id: "preview",
       label: "Preview images",

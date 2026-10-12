@@ -3,7 +3,7 @@ import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { draftBullets, interviewQuestions, rewrite, rolesNeedingWork, templateQuestions } from "../src/ai/coach.ts";
-import { cached, getAI } from "../src/ai/index.ts";
+import { cached, getAI, normalizeOllamaHost, probeOllama } from "../src/ai/index.ts";
 import { fakeAI } from "./fixtures.ts";
 import { interviewPrep, prepMarkdown } from "../src/ai/prep.ts";
 import { ensureApplication, followUpsDue, learn, listApplications, setStatus, APPLICATIONS_DIR } from "../src/applications.ts";
@@ -58,55 +58,79 @@ describe("writing coach", () => {
 });
 
 describe("ollama", () => {
-  // A stand-in Ollama server: lists pulled models and answers /api/chat with a canned reply.
+  // Stand-in Ollama servers: list pulled models and answer /api/chat with a canned reply.
   const bodies: any[] = [];
-  let pulled = ["qwen3:8b"];
-  const server = Bun.serve({
-    port: 0,
-    routes: {
-      "/api/tags": () => Response.json({ models: pulled.map((name) => ({ name })) }),
-      "/api/chat": {
-        POST: async (req) => {
-          bodies.push(await req.json());
-          return Response.json({ message: { role: "assistant", content: JSON.stringify({ options: [{ style: "shorter", text: "Cut deploys from 40 to 8 minutes" }] }) } });
+  const servers: ReturnType<typeof Bun.serve>[] = [];
+  const fakeOllama = (tags: () => Response | Promise<Response>) => {
+    const server = Bun.serve({
+      port: 0,
+      routes: {
+        "/api/tags": tags,
+        "/api/chat": {
+          POST: async (req) => {
+            bodies.push(await req.json());
+            return Response.json({ message: { role: "assistant", content: JSON.stringify({ options: [{ style: "shorter", text: "Cut deploys from 40 to 8 minutes" }] }) } });
+          },
         },
       },
-    },
-  });
-  const withHost = async <T>(fn: () => Promise<T>) => {
+    });
+    servers.push(server);
+    return server.url.origin;
+  };
+  const pulled = (...names: string[]) => fakeOllama(() => Response.json({ models: names.map((name) => ({ name })) }));
+  const withHost = async <T>(host: string, fn: () => Promise<T>) => {
     const old = process.env.OLLAMA_HOST;
-    process.env.OLLAMA_HOST = server.url.origin;
+    process.env.OLLAMA_HOST = host;
     try {
       return await fn();
     } finally {
       process.env.OLLAMA_HOST = old;
     }
   };
-  afterAll(() => server.stop(true));
+  afterAll(() => servers.forEach((s) => s.stop(true)));
 
   test("auto uses Ollama when it's running, sending the schema as the format", async () => {
-    const ai = await withHost(() => getAI(undefined, "auto"));
+    const host = pulled("qwen3:8b");
+    const ai = await withHost(host, () => getAI(undefined, "auto"));
     expect(ai.name).toBe("ollama");
     expect(ai.model).toBe("qwen3:8b");
-    const out = await withHost(() => rewrite(ai, role.highlights![0]!, "highlight", role));
+    const out = await withHost(host, () => rewrite(ai, role.highlights![0]!, "highlight", role));
     expect(out[0]!.text).toBe("Cut deploys from 40 to 8 minutes");
-    expect(bodies.at(-1)).toMatchObject({ model: "qwen3:8b", stream: false, format: { type: "object" } });
+    expect(bodies.at(-1)).toMatchObject({ model: "qwen3:8b", stream: false, think: false, format: { type: "object" } });
     expect(bodies.at(-1).messages.map((m: { role: string }) => m.role)).toEqual(["system", "user"]);
+    // Sized past Ollama's small default, so the rules at the start aren't cut off.
+    expect(bodies.at(-1).options.num_ctx).toBeGreaterThanOrEqual(8192);
   });
 
   test("auto refuses to switch to a paid model when the local model isn't pulled", async () => {
-    pulled = ["llama3.1:8b"];
-    try {
-      await expect(withHost(() => getAI(undefined, "auto"))).rejects.toThrow("ollama pull qwen3:8b");
-    } finally {
-      pulled = ["qwen3:8b"];
-    }
+    await expect(withHost(pulled("llama3.1:8b"), () => getAI(undefined, "auto"))).rejects.toThrow("ollama pull qwen3:8b");
+  });
+
+  test("auto refuses to switch to a paid model when Ollama is there but failing", async () => {
+    const host = fakeOllama(() => new Response("busy", { status: 503 }));
+    await expect(withHost(host, () => getAI(undefined, "auto"))).rejects.toThrow("isn't responding (HTTP 503)");
+  });
+
+  test("a slow Ollama is unresponsive, not down", async () => {
+    const host = fakeOllama(() => Bun.sleep(200).then(() => Response.json({ models: [] })));
+    expect(await probeOllama(host, { fresh: true, timeoutMs: 20 })).toEqual({ state: "unresponsive", reason: "timed out" });
   });
 
   test("auto skips Ollama when it isn't running", async () => {
     // test/setup.ts points OLLAMA_HOST at a closed port.
+    expect(await probeOllama(undefined, { fresh: true })).toEqual({ state: "down" });
     const ai = await getAI(undefined, "auto").catch((e: Error) => e);
-    expect(ai instanceof Error ? ai.message : ai.name).not.toMatch(/^ollama$|isn't pulled/);
+    expect(ai instanceof Error ? ai.message : ai.name).not.toMatch(/^ollama$|isn't pulled|isn't responding/);
+  });
+
+  test("OLLAMA_HOST is read the way Ollama reads it", () => {
+    expect(normalizeOllamaHost(undefined)).toBe("http://localhost:11434");
+    expect(normalizeOllamaHost(" ")).toBe("http://localhost:11434");
+    expect(normalizeOllamaHost("0.0.0.0")).toBe("http://127.0.0.1:11434");
+    expect(normalizeOllamaHost("127.0.0.1:11434")).toBe("http://127.0.0.1:11434");
+    expect(normalizeOllamaHost("gpu-box")).toBe("http://gpu-box:11434");
+    expect(normalizeOllamaHost("[::1]:8080")).toBe("http://[::1]:8080");
+    expect(normalizeOllamaHost("https://ollama.example/")).toBe("https://ollama.example");
   });
 });
 
