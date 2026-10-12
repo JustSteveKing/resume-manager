@@ -1,3 +1,7 @@
+import { beforeEach } from "bun:test";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
+
 // Never touch the real ~/.config/resume-manager from tests.
 process.env.RESUME_CONFIG_DIR ??= `${require("node:os").tmpdir()}/rm-test-config-${process.pid}`;
 
@@ -13,3 +17,10 @@ process.env.OLLAMA_HOST = "http://127.0.0.1:9";
 process.env.RESUME_PDF_BROWSER = "local";
 delete process.env.ICHABOD_API_KEY; // a local Ollama must not change which AI tests get (port 9 refuses)
 process.env.RESUME_SKIP_DOCTOR ??= "1"; // the startup doctor spawns git/which; not needed in TUI tests
+
+// All test files run in one process and share these folders, in an order that differs between machines
+// (CI on Linux saw another file's inbox suggestions and applications). Every test starts without them.
+beforeEach(async () => {
+  await rm(join(process.env.RESUME_CACHE_DIR!, "inbox"), { recursive: true, force: true });
+  await rm(process.env.RESUME_APPLICATIONS_DIR!, { recursive: true, force: true });
+});
