@@ -39,3 +39,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 /variants/
 /applications/
 /reports/
+# LinkedIn data exports (Basic_/Complete_LinkedInDataExport_<date>.zip and unzipped folders)
+*LinkedInDataExport*
+# stray exports outside dist/
+/*.pdf
+/*.docx
