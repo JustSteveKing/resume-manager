@@ -27,11 +27,25 @@ export const Config = z.object({
 });
 export type Config = z.infer<typeof Config>;
 
+/** The config file exists but can't be used. Thrown rather than treated as empty, so a save never overwrites it. */
+export class ConfigError extends Error {}
+
+/** First problem in a failed parse, as "path: message". */
+export const firstIssue = (e: z.ZodError) => {
+  const i = e.issues[0];
+  return i ? `${i.path.length ? `${i.path.join(".")}: ` : ""}${i.message}` : e.message;
+};
+
 export async function loadConfig(): Promise<Config> {
   const f = Bun.file(CONFIG_FILE);
   if (!(await f.exists())) return {};
-  const parsed = Config.safeParse(await f.json().catch(() => ({})));
-  return parsed.success ? parsed.data : {};
+  const fail = (why: string) => new ConfigError(`Can't read ${CONFIG_FILE} (${why}). Fix or delete it; it hasn't been changed.`);
+  const json = await f.json().catch(() => {
+    throw fail("not valid JSON");
+  });
+  const parsed = Config.safeParse(json);
+  if (!parsed.success) throw fail(firstIssue(parsed.error));
+  return parsed.data;
 }
 
 /** Save with owner-only permissions: the file can hold API keys. */

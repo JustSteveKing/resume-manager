@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { loadConfig } from "./config.ts";
+import { firstIssue, loadConfig } from "./config.ts";
 
 // Spend ledger and budget cap. Writing runs locally on Ollama (free), so only Tabstack is here. Its SDK
 // doesn't publish per-call prices, so Extract/Generate calls are counted, and Research is priced
@@ -13,7 +13,6 @@ export const TABSTACK_RESEARCH_FAST_USD = 2;
 
 const Entry = z.object({
   at: z.string(),
-  service: z.literal("tabstack"),
   op: z.string(),
   usd: z.number().optional(),
   model: z.string().optional(),
@@ -22,17 +21,25 @@ const Entry = z.object({
 });
 export type Entry = z.infer<typeof Entry>;
 
+/** The ledger exists but can't be read. Thrown rather than treated as empty: that would lift the budget and lose history on the next write. */
+export class LedgerError extends Error {}
+
 async function readLedger(): Promise<Entry[]> {
   const f = Bun.file(ledgerFile());
   if (!(await f.exists())) return [];
-  const parsed = z.array(Entry).safeParse(await f.json().catch(() => []));
-  return parsed.success ? parsed.data : [];
+  const fail = (why: string) => new LedgerError(`Can't read the spend ledger ${ledgerFile()} (${why}). Fix or delete it; paid calls are paused until then.`);
+  const json = await f.json().catch(() => {
+    throw fail("not valid JSON");
+  });
+  const parsed = z.array(Entry).safeParse(json);
+  if (!parsed.success) throw fail(firstIssue(parsed.error));
+  return parsed.data;
 }
 
-// Serialise writes: several calls can finish at once.
+// Serialise writes: several calls can finish at once. A failed write mustn't block the ones after it.
 let writing = Promise.resolve();
 export function record(entry: Omit<Entry, "at">): Promise<void> {
-  writing = writing.then(async () => {
+  writing = writing.catch(() => {}).then(async () => {
     const all = await readLedger();
     all.push({ ...entry, at: new Date().toISOString() });
     await Bun.write(ledgerFile(), JSON.stringify(all, null, 2) + "\n");
@@ -56,7 +63,7 @@ export async function monthSpend(now = new Date()): Promise<MonthSpend> {
   return {
     month,
     usd: entries.reduce((n, e) => n + (e.usd ?? 0), 0),
-    tabstackCalls: entries.filter((e) => e.service === "tabstack").length,
+    tabstackCalls: entries.length,
     unpriced: entries.filter((e) => e.usd === undefined).length,
     budget,
   };

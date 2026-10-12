@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type Tabstack from "@tabstack/sdk";
 import { testRender } from "@opentui/react/test-utils";
-import { applyEnvironment, CONFIG_FILE, loadConfig, maskKey, parseDotenv, resolveHome, saveConfig } from "../src/config.ts";
-import { BudgetError, checkBudget, formatUsd, monthSpend, record } from "../src/costs.ts";
+import { applyEnvironment, CONFIG_FILE, ConfigError, loadConfig, maskKey, parseDotenv, resolveHome, saveConfig, updateConfig } from "../src/config.ts";
+import { BudgetError, checkBudget, formatUsd, LedgerError, monthSpend, record } from "../src/costs.ts";
 import { runDoctor } from "../src/doctor.ts";
 import { metered } from "../src/tabstack.ts";
 import { closePreviewRenderer, pagePng, renderPreviewPdf } from "../src/tui/preview-render.ts";
@@ -65,8 +65,8 @@ describe("costs", () => {
 
   test("ledger totals the month and the budget refuses overspend", async () => {
     const before = (await monthSpend()).usd;
-    await record({ service: "tabstack", op: "agent.research", usd: 0.5 });
-    await record({ service: "tabstack", op: "extract.json" });
+    await record({ op: "agent.research", usd: 0.5 });
+    await record({ op: "extract.json" });
     const s = await monthSpend();
     expect(s.usd).toBeCloseTo(before + 0.5);
     expect(s.unpriced).toBeGreaterThanOrEqual(1);
@@ -74,6 +74,36 @@ describe("costs", () => {
     await checkBudget(0.5, "small");
     await expect(checkBudget(2, "Tabstack research")).rejects.toBeInstanceOf(BudgetError);
     await saveConfig({});
+  });
+
+  test("an unreadable config is an error, never overwritten", async () => {
+    for (const bad of ['{"home": "/x", "ai": "gpt"}', "{not json"]) {
+      await Bun.write(CONFIG_FILE, bad);
+      await expect(loadConfig()).rejects.toBeInstanceOf(ConfigError);
+      await expect(updateConfig((c) => void (c.ai = "auto"))).rejects.toThrow(CONFIG_FILE);
+      expect(await Bun.file(CONFIG_FILE).text()).toBe(bad);
+    }
+    await saveConfig({});
+  });
+
+  test("an unreadable ledger pauses paid calls instead of resetting spend", async () => {
+    const file = join(process.env.RESUME_CACHE_DIR!, "spend.json");
+    const good = await Bun.file(file).text().catch(() => "[]");
+    const bad = JSON.stringify([{ at: new Date().toISOString(), op: "agent.research", usd: "two" }]);
+    await Bun.write(file, bad);
+    try {
+      await expect(monthSpend()).rejects.toBeInstanceOf(LedgerError);
+      await expect(record({ op: "extract.json" })).rejects.toBeInstanceOf(LedgerError);
+      expect(await Bun.file(file).text()).toBe(bad);
+      let called = false;
+      const fake = { extract: { json: async () => ((called = true), {}) } } as unknown as Tabstack;
+      await expect(metered(fake).extract.json({} as never)).rejects.toBeInstanceOf(LedgerError);
+      expect(called).toBe(false);
+    } finally {
+      await Bun.write(file, good);
+    }
+    // A failed write doesn't block the next one.
+    await record({ op: "extract.json" });
   });
 
   test("metered Tabstack client records calls and checks the budget before research", async () => {

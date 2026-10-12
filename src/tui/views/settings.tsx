@@ -27,8 +27,13 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
   const [sel, setSel] = useState(0);
 
   const refresh = async (live = false, liveTabstack = false) => {
-    setConfig(await loadConfig());
-    setSpend(await monthSpend());
+    try {
+      setConfig(await loadConfig());
+      setSpend(await monthSpend());
+    } catch (e) {
+      // The doctor below lists the same problem with a fix.
+      store.flash(e instanceof Error ? e.message : String(e), "error");
+    }
     const res = await store.run(live ? "Testing connections" : "Checking setup", () => runDoctor({ live, liveTabstack, imageProtocol: props.imageProtocol }));
     if (res) setChecks(res);
   };

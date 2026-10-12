@@ -1,6 +1,6 @@
 import Tabstack from "@tabstack/sdk";
 import { z } from "zod";
-import { checkBudget, record, TABSTACK_RESEARCH_FAST_USD } from "./costs.ts";
+import { checkBudget, monthSpend, record, TABSTACK_RESEARCH_FAST_USD } from "./costs.ts";
 import { normaliseDates } from "./dates.ts";
 import { prune } from "./store.ts";
 
@@ -28,9 +28,10 @@ export function metered(c: Tabstack): Tabstack {
           const op = `${String(prop)}.${name}`;
           const usd = ops[name];
           return async (...args: unknown[]) => {
-            if (usd) await checkBudget(usd, `Tabstack ${op}`);
+            // Unpriced calls still read the ledger first, so one that can't be recorded fails before it runs.
+            await (usd ? checkBudget(usd, `Tabstack ${op}`) : monthSpend());
             const out = await fn.apply(res, args);
-            await record({ service: "tabstack", op, usd });
+            await record({ op, usd });
             return out;
           };
         },
