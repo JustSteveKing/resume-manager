@@ -1,109 +1,36 @@
+# CLAUDE.md
 
-Default to using Bun instead of Node.js.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+resume-manager is a Bun + TypeScript CLI/TUI (`cv`) that builds, tailors and exports a JSON Resume. No web server, no build step: `src/cli.ts` runs directly.
 
-## APIs
-
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
-
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
-
-## Frontend
-
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
+## Commands
 
 ```sh
-bun --hot ./index.ts
+bun install
+bunx puppeteer browsers install chrome   # Bun skips postinstall; PDF export and preview need Chrome
+bun start                                # TUI (same as `cv` after `bun link`)
+bun start <command> [opts]               # CLI, e.g. `bun start validate`, `bun start export --all --ats`
+bun test                                 # all tests (preloads test/setup.ts via bunfig.toml)
+bun test test/tui.test.tsx               # one file
+bun test -t "pattern"                    # tests matching a name
+bun run typecheck                        # tsc --noEmit (TypeScript 7)
 ```
 
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+CI (`.github/workflows/resume.yml`) runs typecheck, tests, `validate` and `export --all --ats` against `examples/` when no resume secrets are set.
+
+## Bun
+
+Use Bun, not Node: `bun <file>`, `bun test`, `bunx`, `bun:sqlite`, `Bun.file` over `node:fs` read/write, `Bun.$` over execa. Bun loads `.env` automatically (no dotenv). API docs: `node_modules/bun-types/docs/**.mdx`.
+
+## Architecture
+
+- **Data**: `resume.json` (full career record), `variants/<name>.json`, `applications/<slug>/` live in the user's data folder (`RESUME_HOME`, else cwd with a `resume.json`, else the `cv init` folder). Paths come from `RESUME_*` env vars set by `applyEnvironment()`. Keys/budget live in `~/.config/resume-manager/config.json`; caches, AI answers and the spend ledger in `.cache/`.
+- **Flow**: `schema.ts` (Zod) → `store.ts` (load/save/prune) → `variants.ts` (`applyVariant` turns a resume + variant into a `ResumeView`, plus auto-fit trims) → `export/` (HTML/text renderers, themes, Puppeteer PDF, ATS text-extraction check).
+- **Entry**: `src/cli.ts` → `cli/index.ts` (`runCommand`) with args, else `tui/index.tsx` (`runTui`).
+- **TUI**: `tui/app.tsx` (layout, nav, command list), `tui/store.tsx` (state, undo/redo, saving), `tui/form.tsx` (generic editor), `tui/views/*` (one per screen).
+- **Paid/AI**: `tabstack.ts` (metered Tabstack client), `ai/index.ts` (`AI` abstraction: Claude or Tabstack generate), `costs.ts` (spend ledger and budget), `grounding.ts` (`isGrounded`).
+- **Features**: `job.ts` (tailoring, cover letter, research), `keywords.ts`, `lint.ts` + `consistency.ts` (Issues/validate), `evidence.ts`, `importer.ts` + `linkedin.ts` + `sources.ts` (imports and dedupe), `repos/` + `forges/` (GitHub/GitLab scan), `inbox.ts`, `applications.ts`.
 
 ## This project
 
