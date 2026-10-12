@@ -80,8 +80,8 @@ export function ExportView(props: { active: boolean; width: number; height: numb
     if (!s.targets.length || !s.formats.length) return store.flash("Pick at least one target and format", "warn");
     const out: { text: string; fg?: string }[] = [];
     let first: string | undefined;
-    const ok = await store.run("Exporting", async (progress) => {
-      const renderer = new PdfRenderer();
+    const renderer = new PdfRenderer();
+    const ok = await store.run(renderer.where === "ichabod" && s.formats.includes("pdf") ? "Exporting via Ichabod" : "Exporting", async (progress) => {
       try {
         for (const t of s.targets) {
           const full = t === FULL;

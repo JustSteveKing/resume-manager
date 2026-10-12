@@ -22,7 +22,7 @@ export function renderPreviewPdf(view: ResumeView, theme: Theme, paper: PaperSiz
   const key = Bun.hash(JSON.stringify([view, theme.id, paper, accent])).toString(16);
   let hit = pdfCache.get(key);
   if (!hit) {
-    renderer ??= new PdfRenderer();
+    renderer ??= new PdfRenderer({ browser: "local" }); // re-renders on every edit: never a cloud session
     hit = renderer.render(view, theme, paper, accent).then(async (pdf) => ({ pdf, pages: await pdfPages(pdf) }));
     pdfCache.set(key, hit);
     hit.catch(() => pdfCache.delete(key));

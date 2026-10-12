@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { checkAts } from "../src/export/ats.ts";
 import { renderHtml } from "../src/export/html.ts";
-import { PdfRenderer } from "../src/export/index.ts";
+import { connectIchabod, exportResume, ichabodEndpoint, PdfRenderer } from "../src/export/index.ts";
 import { renderText } from "../src/export/text.ts";
 import { THEMES, type Theme } from "../src/export/themes.ts";
 import { jobReport, tailorVariant } from "../src/job.ts";
@@ -198,4 +198,91 @@ describe("ATS check (renders real PDFs)", () => {
     expect(report.ok).toBe(false);
     expect(report.missing.some((m) => m.startsWith("heading"))).toBe(true);
   }, 30_000);
+});
+
+describe("Ichabod PDF browser", () => {
+  const withEnv = async <T>(env: Record<string, string | undefined>, fn: () => Promise<T>) => {
+    const old = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]));
+    for (const [k, v] of Object.entries(env)) v === undefined ? delete process.env[k] : (process.env[k] = v);
+    try {
+      return await fn();
+    } finally {
+      for (const [k, v] of Object.entries(old)) v === undefined ? delete process.env[k] : (process.env[k] = v);
+    }
+  };
+
+  /** Run with the ICHABOD_* overrides unset, so defaults apply. */
+  const withoutEngine = <T>(fn: () => T): T => {
+    const keys = ["ICHABOD_HOST", "ICHABOD_ENGINE", "ICHABOD_VERSION"];
+    const old = keys.map((k) => process.env[k]);
+    keys.forEach((k) => delete process.env[k]);
+    try {
+      return fn();
+    } finally {
+      keys.forEach((k, i) => (old[i] === undefined ? delete process.env[k] : (process.env[k] = old[i])));
+    }
+  };
+
+  test("builds the wss://<host>/{engine}/{version} endpoint, Gecko by default", () => {
+    expect(withoutEngine(() => ichabodEndpoint())).toBe("wss://stage.api.ichabod.nonprod.webservices.mozgcp.net/gecko/157");
+    expect(ichabodEndpoint("api.example.test", "chromium")).toBe("wss://api.example.test/chromium/154");
+    expect(ichabodEndpoint("https://api.example.test/", "chromium", "154")).toBe("wss://api.example.test/chromium/154");
+    expect(ichabodEndpoint("ws://127.0.0.1:9000", "chromium", "200")).toBe("ws://127.0.0.1:9000/chromium/200");
+  });
+
+  test("sends the key as Basic auth for user api", async () => {
+    // A stand-in that records the WebSocket upgrade and refuses it.
+    let seen: { path: string; auth: string | null } | undefined;
+    const server = Bun.serve({
+      port: 0,
+      fetch(req) {
+        seen = { path: new URL(req.url).pathname, auth: req.headers.get("authorization") };
+        return new Response("no", { status: 401 });
+      },
+    });
+    try {
+      const env = { ICHABOD_HOST: `ws://127.0.0.1:${server.port}`, ICHABOD_ENGINE: undefined, ICHABOD_VERSION: undefined };
+      const err = await withEnv(env, () => connectIchabod("secret-key").catch((e: Error) => e));
+      expect(err).toBeInstanceOf(Error);
+      expect((err as Error).message).toContain("Couldn't connect to Ichabod");
+      expect((err as Error).message).not.toContain("secret-key");
+      expect(seen).toEqual({ path: "/gecko/157", auth: `Basic ${btoa("api:secret-key")}` });
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("exports use Ichabod when chosen, and say so when the key is missing", async () => {
+    const err = await withEnv({ RESUME_PDF_BROWSER: "ichabod", ICHABOD_API_KEY: undefined }, async () => {
+      expect(new PdfRenderer().where).toBe("ichabod");
+      // The page preview pins local whatever the setting.
+      expect(new PdfRenderer({ browser: "local" }).where).toBe("local");
+      return exportResume({ resume: await example(), formats: ["pdf"] }).catch((e: Error) => e);
+    });
+    expect((err as Error).message).toContain("no Ichabod key is set");
+  });
+
+  test("one session per run: reused across PDFs, closed at the end, retried after a failed open", async () => {
+    let opened = 0;
+    let closed = 0;
+    let fail = true;
+    const page = { setContent: async () => {}, pdf: async () => new Uint8Array([37, 80, 68, 70]), close: async () => {} };
+    const browser = { newPage: async () => page, close: async () => void closed++ };
+    const renderer = new PdfRenderer({
+      open: async () => {
+        opened++;
+        if (fail) throw new Error("busy");
+        return browser as never;
+      },
+    });
+    const view = applyVariant(await example());
+    await expect(renderer.render(view, THEMES[0]!, "A4")).rejects.toThrow("busy");
+    fail = false;
+    await renderer.render(view, THEMES[0]!, "A4");
+    await renderer.render(view, THEMES[1]!, "A4");
+    expect(opened).toBe(2);
+    await renderer.close();
+    await renderer.close();
+    expect(closed).toBe(1);
+  });
 });

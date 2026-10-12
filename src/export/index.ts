@@ -15,13 +15,82 @@ export type PaperSize = "A4" | "Letter";
 
 export const OUT_DIR = process.env.RESUME_OUT_DIR ?? "dist";
 
-/** Lazily launched headless Chrome, shared across PDFs in one run. */
+// ---------- where PDFs are printed ----------
+
+/**
+ * Local headless Chrome (default), or Ichabod, Mozilla's cloud browser. Ichabod is opt-in: the resume
+ * HTML (contact details included) is sent to it, and its sessions can be recorded.
+ */
+export type PdfBrowser = "local" | "ichabod";
+export const pdfBrowser = (): PdfBrowser => (process.env.RESUME_PDF_BROWSER === "ichabod" ? "ichabod" : "local");
+
+export const ICHABOD_HOST = "stage.api.ichabod.nonprod.webservices.mozgcp.net";
+export const ICHABOD_PRIVACY = "Exports will send your resume (contact details included) to Ichabod, Mozilla's cloud browser; its sessions can be recorded. The TUI page preview stays local.";
+/**
+ * Engine and default version. Gecko (Firefox) by default. It lays pages out a little differently from
+ * local Chrome, so page counts can differ; each export's fit and ATS check run on the PDF it produced.
+ * Chromium matches local Chrome.
+ */
+export type IchabodEngine = "chromium" | "gecko";
+export const ICHABOD_VERSIONS: Record<IchabodEngine, string> = { chromium: "154", gecko: "157" };
+export const ichabodEngine = (): IchabodEngine => (process.env.ICHABOD_ENGINE?.trim() === "chromium" ? "chromium" : "gecko");
+
+/** WebDriver BiDi endpoint: wss://<host>/{engine}/{version}. A bare host gets wss://; an explicit ws(s):// is kept. */
+export function ichabodEndpoint(
+  host = process.env.ICHABOD_HOST?.trim() || ICHABOD_HOST,
+  engine: IchabodEngine = ichabodEngine(),
+  version = process.env.ICHABOD_VERSION?.trim() || ICHABOD_VERSIONS[engine],
+): string {
+  const base = (/^wss?:\/\//.test(host) ? host : `wss://${host.replace(/^https?:\/\//, "")}`).replace(/\/+$/, "");
+  return `${base}/${engine}/${version}`;
+}
+
+/**
+ * Open an Ichabod session with Puppeteer over WebDriver BiDi. Ichabod's examples put the key in the URL
+ * (api:<key>@host), but Bun's WebSocket doesn't turn URL credentials into a header, so the same Basic
+ * auth goes in an explicit header (which also keeps the key out of error messages).
+ * browser.close() ends the session; disconnecting would leak it.
+ */
+export async function connectIchabod(key = process.env.ICHABOD_API_KEY?.trim()): Promise<Browser> {
+  if (!key) {
+    throw new Error("PDF browser is Ichabod but no Ichabod key is set. Add it in Settings or with `cv config key ichabod <key>`, or switch back: `cv config pdf-browser local`.");
+  }
+  const endpoint = ichabodEndpoint();
+  try {
+    return await puppeteer.connect({ browserWSEndpoint: endpoint, protocol: "webDriverBiDi", headers: { Authorization: `Basic ${btoa(`api:${key}`)}` } });
+  } catch (e) {
+    throw new Error(`Couldn't connect to Ichabod at ${endpoint}: ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+/** A browser shared across PDFs in one run, opened on first use. */
 export class PdfRenderer {
   private browser?: Promise<Browser>;
 
-  async render(view: ResumeView, theme: Theme, paper: PaperSize, accent?: string): Promise<Uint8Array> {
+  /**
+   * `browser` overrides the configured choice (the TUI page preview always prints locally: it re-renders
+   * on every edit). `open` replaces how the browser is obtained, for tests.
+   */
+  constructor(private opts: { browser?: PdfBrowser; open?: () => Promise<Browser> } = {}) {}
+
+  /** Where this renderer prints. */
+  get where(): PdfBrowser {
+    return this.opts.browser ?? pdfBrowser();
+  }
+
+  private open(): Promise<Browser> {
+    if (this.opts.open) return this.opts.open();
+    if (this.where === "ichabod") return connectIchabod();
     // CI runners (GitHub Actions) don't allow Chrome's sandbox.
-    this.browser ??= puppeteer.launch({ args: process.env.CI ? ["--no-sandbox"] : [] });
+    return puppeteer.launch({ args: process.env.CI ? ["--no-sandbox"] : [] });
+  }
+
+  async render(view: ResumeView, theme: Theme, paper: PaperSize, accent?: string): Promise<Uint8Array> {
+    // A failed open isn't cached: the next render tries again.
+    this.browser ??= this.open().catch((e) => {
+      this.browser = undefined;
+      throw e;
+    });
     const page = await (await this.browser).newPage();
     try {
       await page.setContent(renderHtml(view, { theme, accent }), { waitUntil: "load" });
@@ -32,8 +101,9 @@ export class PdfRenderer {
   }
 
   async close() {
-    if (this.browser) await (await this.browser).close();
+    const browser = this.browser;
     this.browser = undefined;
+    if (browser) await (await browser.catch(() => undefined))?.close();
   }
 }
 
@@ -69,7 +139,16 @@ export interface ExportResult {
   pdfs: PdfResult[];
 }
 
-export async function exportResume(req: ExportRequest, renderer = new PdfRenderer()): Promise<ExportResult> {
+/** Without a renderer, one is opened for this export and closed after it (a cloud session, or a local Chrome). */
+export async function exportResume(req: ExportRequest, renderer?: PdfRenderer): Promise<ExportResult> {
+  if (!renderer) {
+    const own = new PdfRenderer();
+    try {
+      return await exportResume(req, own);
+    } finally {
+      await own.close();
+    }
+  }
   const v = req.variant ?? {};
   const themes = req.themes?.length ? req.themes : [themeById(v.theme) ?? THEMES[0]!];
   const paper = req.paper ?? v.paper ?? "A4";

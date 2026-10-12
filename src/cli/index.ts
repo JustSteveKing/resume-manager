@@ -21,7 +21,9 @@ Setup:
   config ollama-model <name|off>  Local model for writing features (default qwen3:8b)
   config ollama-host <url|off>    Ollama server (default http://localhost:11434)
   config budget <usd|off>         Monthly cap on Tabstack spend (Research is the priced call)
-  config key <tabstack|github|gitlab> <value|off>
+  config key <tabstack|github|gitlab|ichabod> <value|off>
+  config pdf-browser <local|ichabod>  Print exported PDFs with local Chrome or Ichabod (Mozilla cloud browser)
+  config ichabod-host <host|off>  Ichabod API host
   config gitlab-host <url|off>    Self-hosted GitLab (default gitlab.com)
   spend                           Tabstack spend this month (writing on Ollama is free)
 

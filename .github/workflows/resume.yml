@@ -8,6 +8,10 @@ name: Build resume
 #   RESUME_VARIANTS  base64 tar.gz of variants/      (tar czf - variants | base64 | pbcopy)
 # Without them, the workflow builds examples/ instead.
 #
+# Optional: add an ICHABOD_API_KEY secret to print the exported PDFs on Ichabod (Mozilla's cloud
+# browser) instead of the runner's Chrome. The resume is then sent to Ichabod. Tests always use
+# local Chrome.
+#
 # Exported files are only uploaded (artifact, and a release on v* tags) when the repository
 # is private, so a public repo never publishes your contact details.
 
@@ -58,6 +62,9 @@ jobs:
         run: bun start validate
 
       - name: Export
+        env:
+          ICHABOD_API_KEY: ${{ secrets.ICHABOD_API_KEY }}
+          RESUME_PDF_BROWSER: ${{ secrets.ICHABOD_API_KEY != '' && 'ichabod' || 'local' }}
         run: bun start export --all --format pdf,html,json,text --ats
 
       - uses: actions/upload-artifact@v4

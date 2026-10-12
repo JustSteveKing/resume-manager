@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { normalizeOllamaHost, OLLAMA_HOST, OLLAMA_MODEL } from "../../ai/index.ts";
+import { ICHABOD_PRIVACY } from "../../export/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, updateConfig, type Config } from "../../config.ts";
 import { describeSpend, monthSpend, type MonthSpend } from "../../costs.ts";
 import { CHECK_ICON, runDoctor, type Check } from "../../doctor.ts";
@@ -7,8 +8,8 @@ import type { Intent } from "../commands.ts";
 import { useKeys, useStore } from "../store.tsx";
 import { C, fit, Hints, Line, Pane, split, windowStart } from "../ui.tsx";
 
-type KeyName = "tabstack" | "github" | "gitlab";
-const ENV: Record<KeyName, string> = { tabstack: "TABSTACK_API_KEY", github: "GITHUB_TOKEN", gitlab: "GITLAB_TOKEN" };
+type KeyName = "tabstack" | "github" | "gitlab" | "ichabod";
+const ENV: Record<KeyName, string> = { tabstack: "TABSTACK_API_KEY", github: "GITHUB_TOKEN", gitlab: "GITLAB_TOKEN", ichabod: "ICHABOD_API_KEY" };
 const STATUS_COLOR = { ok: C.ok, warn: C.warn, error: C.err, info: C.dim } as const;
 
 interface Row {
@@ -176,6 +177,22 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
         if (v?.[0]) await save((c) => void (c.preview = { protocol: v[0] }), `Preview: ${v[0]}`);
       },
     },
+    {
+      id: "pdf-browser",
+      label: "PDF browser",
+      value: process.env.RESUME_PDF_BROWSER === "ichabod" ? "ichabod (Mozilla cloud browser)" : "local Chrome",
+      edit: async () => {
+        const v = await store.choose("Where to print exported PDFs", [
+          { value: "local" as const, label: "local: headless Chrome on this machine" },
+          { value: "ichabod" as const, label: "ichabod: Mozilla's cloud browser (your resume is sent to it)" },
+        ]);
+        if (!v?.[0]) return;
+        if (v[0] === "ichabod" && !(await store.confirm(`${ICHABOD_PRIVACY} Continue?`))) return;
+        await save((c) => void (c.pdf = { ...c.pdf, browser: v[0] }), `PDF browser: ${v[0]}`);
+        process.env.RESUME_PDF_BROWSER = v[0];
+      },
+    },
+    keyRow("ichabod", "Ichabod key"),
   ];
   const current = rows[Math.min(sel, rows.length - 1)];
 

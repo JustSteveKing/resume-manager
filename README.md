@@ -38,7 +38,7 @@ API keys go in **Settings** (in the TUI) or `cv config key <tabstack|github|gitl
 Every change saves immediately. The header shows `✔ saved`, or why it can't save yet (for example, a new entry still needs its required name).
 
 - **Preview draws the real PDF in the terminal**: full resolution in Kitty, Ghostty, WezTerm and iTerm2 (Kitty graphics or Sixel), Unicode blocks anywhere else. `[ ]` turn pages, `c` cycles themes and `a` accents to try a look, `s` saves it, `t` switches to the plain-text (ATS) view. It re-renders as you edit, using a Chrome kept warm for the session.
-- **Settings** (under SETUP): API keys, which AI writes (and the Ollama model and host), a monthly Tabstack budget, preview mode, this month's Tabstack spend, and the doctor's checks (`r` tests connections for free; `T` tests Tabstack, which costs one call).
+- **Settings** (under SETUP): API keys, which AI writes (and the Ollama model and host), where PDFs are printed (local Chrome or Ichabod), a monthly Tabstack budget, preview mode, this month's Tabstack spend, and the doctor's checks (`r` tests connections for free; `T` tests Tabstack, which costs one call).
 - **Press `:` (or `ctrl+p`) and type** to do anything without memorising keys: "add work", "import json", "export", "sort", "scan github", "go to talks"…
 - **`u` undoes any change** (edits, deletes, sorts, imports, merges, even replacing the whole resume); `U` redoes. The status bar shows what `u` will undo.
 - **First run** (no resume yet) opens a welcome screen: import a JSON Resume, start from your GitHub, fill in your details, or explore with sample data.
@@ -189,6 +189,8 @@ Files go to `variants/<name>.json` and `applications/<name>/` (`job.md`, `cover-
 ### Export
 To `dist/`: PDF, standalone HTML, JSON Resume (variant applied, tool settings stripped) and plain text for ATS forms. Each PDF reports its **page count** and, optionally, an **ATS check**. The check extracts the PDF's text the way an applicant tracking system would and verifies that headings, roles, dates and contact details survive, in order.
 
+**Printing in the cloud (optional):** PDFs are printed with local headless Chrome. To print them on [Ichabod](https://stage.console.ichabod.nonprod.webservices.mozgcp.net/docs) (Mozilla's cloud browser, in invite-only preview) instead, run `cv config key ichabod <key>` and `cv config pdf-browser ichabod`, or set both in Settings. It connects with Puppeteer over WebDriver BiDi to `wss://<host>/{engine}/{version}` and uses Gecko (Firefox) by default. Firefox lays pages out a little differently from local Chrome, so page counts can differ; set `ICHABOD_ENGINE=chromium` to match local output. Exports then send your resume, contact details included, to Ichabod, and its sessions can be recorded. The TUI page preview always renders locally, because it re-renders on every edit. In CI, add an `ICHABOD_API_KEY` secret. Tests always use local Chrome.
+
 ## PDF themes
 
 | Theme | Look |
@@ -226,7 +228,7 @@ Your data stays out of git: `resume.json`, `variants/` and `applications/` are g
 | `src/cli/` | Commands, one file per area (`setup`, `resume`, `apply`, `grow`), dispatched from `index.ts`; options in `context.ts` |
 | `src/tui/` | OpenTUI app (`app.tsx`, `form.tsx`, `views/`); `tui/commands.ts` is the palette's action list |
 
-Env: `OLLAMA_HOST` (`http://localhost:11434`), `OLLAMA_MODEL` (`qwen3:8b`), `GITLAB_TOKEN`, `GITLAB_HOST` (self-hosted), `RESUME_HOME` (data folder), `RESUME_CONFIG_DIR` (`~/.config/resume-manager`), `RESUME_AI`, `GITHUB_TOKEN` (optional), `RESUME_CACHE_DIR` (`.cache`), `RESUME_REPORTS_DIR` (`reports`), `RESUME_PATH` (`resume.json`), `RESUME_OUT_DIR` (`dist`), `RESUME_VARIANTS_DIR` (`variants`), `RESUME_APPLICATIONS_DIR` (`applications`), `TABSTACK_API_KEY`.
+Env: `OLLAMA_HOST` (`http://localhost:11434`), `OLLAMA_MODEL` (`qwen3:8b`), `RESUME_PDF_BROWSER` (`local` or `ichabod`), `ICHABOD_API_KEY`, `ICHABOD_HOST`, `ICHABOD_ENGINE` (`gecko` or `chromium`), `ICHABOD_VERSION` (`154` for Chromium, `157` for Gecko), `GITLAB_TOKEN`, `GITLAB_HOST` (self-hosted), `RESUME_HOME` (data folder), `RESUME_CONFIG_DIR` (`~/.config/resume-manager`), `RESUME_AI`, `GITHUB_TOKEN` (optional), `RESUME_CACHE_DIR` (`.cache`), `RESUME_REPORTS_DIR` (`reports`), `RESUME_PATH` (`resume.json`), `RESUME_OUT_DIR` (`dist`), `RESUME_VARIANTS_DIR` (`variants`), `RESUME_APPLICATIONS_DIR` (`applications`), `TABSTACK_API_KEY`.
 
 ```sh
 bun test

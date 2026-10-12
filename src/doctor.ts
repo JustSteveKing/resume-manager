@@ -4,6 +4,7 @@ import puppeteer from "puppeteer";
 import { hasModel, ollamaHost, ollamaModel, probeOllama } from "./ai/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, resolveHome } from "./config.ts";
 import { describeSpend, monthSpend } from "./costs.ts";
+import { ichabodEndpoint, pdfBrowser } from "./export/index.ts";
 import { accountsFromResume } from "./forges/index.ts";
 import { gitlabBase, gitlabToken } from "./forges/gitlab.ts";
 import { githubToken } from "./forges/github.ts";
@@ -94,13 +95,24 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<Check[]> {
     add({ id: "git", label: "Privacy", status: "error", detail: `Not gitignored: ${git.exposed.map((p) => p.replace(/\/x(\.\w+)?$/, "/")).join(", ")}`, fix: "Add them to .gitignore before committing" });
   } else add({ id: "git", label: "Privacy", status: "ok", detail: "Personal files are gitignored" });
 
-  // PDF export
-  const chrome = await puppeteer.executablePath();
-  add(
-    (await exists(chrome))
-      ? { id: "chrome", label: "PDF export", status: "ok", detail: "Chrome installed for Puppeteer" }
-      : { id: "chrome", label: "PDF export", status: "error", detail: "Chrome for Puppeteer is missing", fix: "Run `bunx puppeteer browsers install chrome`" },
-  );
+  // PDF export: local Chrome, or Ichabod (then Chrome is only needed for the TUI page preview)
+  const chrome = await exists(await puppeteer.executablePath());
+  const installChrome = "Run `bunx puppeteer browsers install chrome`";
+  if (pdfBrowser() === "ichabod") {
+    const key = process.env.ICHABOD_API_KEY;
+    add(
+      key
+        ? { id: "pdf", label: "PDF export", status: "ok", detail: `Ichabod at ${ichabodEndpoint()}, key ${maskKey(key)} (not tested: run an export)` }
+        : { id: "pdf", label: "PDF export", status: "error", detail: "Ichabod is chosen but has no key", fix: "Add an Ichabod key in Settings, or switch PDF browser to local" },
+    );
+    if (!chrome) add({ id: "chrome", label: "Page preview", status: "warn", detail: "Chrome for Puppeteer is missing (preview renders locally)", fix: installChrome });
+  } else {
+    add(
+      chrome
+        ? { id: "chrome", label: "PDF export", status: "ok", detail: "Chrome installed for Puppeteer" }
+        : { id: "chrome", label: "PDF export", status: "error", detail: "Chrome for Puppeteer is missing", fix: installChrome },
+    );
+  }
 
   // Tabstack
   const ts = process.env.TABSTACK_API_KEY;

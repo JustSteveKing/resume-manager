@@ -54,6 +54,7 @@ export async function cmdExport({ command, values, positionals, env }: CommandCo
 
   const last = resume.meta?.pdf ?? {};
   const renderer = new PdfRenderer();
+  if (formats.includes("pdf") && renderer.where === "ichabod") print("Printing PDFs on Ichabod (cloud browser)");
   let failed = false;
   try {
     for (const job of jobs) {

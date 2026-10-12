@@ -8,5 +8,8 @@ process.env.RESUME_CONFIG_DIR ??= `${require("node:os").tmpdir()}/rm-test-config
 process.env.RESUME_CACHE_DIR ??= `${require("node:os").tmpdir()}/rm-test-cache-${process.pid}`;
 process.env.RESUME_APPLICATIONS_DIR ??= `${require("node:os").tmpdir()}/rm-test-apps-${process.pid}`;
 process.env.RESUME_PREVIEW ??= "text"; // TUI tests: no Chrome-backed page preview unless a test asks for it
-process.env.OLLAMA_HOST = "http://127.0.0.1:9"; // a local Ollama must not change which AI tests get (port 9 refuses)
+process.env.OLLAMA_HOST = "http://127.0.0.1:9";
+// Tests print PDFs with local Chrome, never a cloud browser, whatever the developer has configured.
+process.env.RESUME_PDF_BROWSER = "local";
+delete process.env.ICHABOD_API_KEY; // a local Ollama must not change which AI tests get (port 9 refuses)
 process.env.RESUME_SKIP_DOCTOR ??= "1"; // the startup doctor spawns git/which; not needed in TUI tests

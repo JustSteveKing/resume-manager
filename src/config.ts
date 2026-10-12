@@ -17,12 +17,14 @@ export const Config = z.object({
   /** Local model via Ollama (default http://localhost:11434, qwen3:8b). */
   ollama: z.object({ host: z.string().optional(), model: z.string().optional() }).optional(),
   keys: z
-    .object({ tabstack: z.string().optional(), github: z.string().optional(), gitlab: z.string().optional() })
+    .object({ tabstack: z.string().optional(), github: z.string().optional(), gitlab: z.string().optional(), ichabod: z.string().optional() })
     .optional(),
   /** Monthly cap on priced Tabstack spend (Research), in US dollars. */
   budget: z.object({ monthlyUsd: z.number().positive().optional() }).optional(),
   /** Self-hosted GitLab, e.g. "https://gitlab.example.com" (default gitlab.com). */
   gitlab: z.object({ host: z.string().optional() }).optional(),
+  /** Where exported PDFs are printed: local Chrome, or Ichabod (Mozilla's cloud browser, opt-in). */
+  pdf: z.object({ browser: z.enum(["local", "ichabod"]).optional(), host: z.string().optional() }).optional(),
   preview: z.object({ protocol: z.enum(["auto", "kitty", "sixel", "blocks"]).optional() }).optional(),
 });
 export type Config = z.infer<typeof Config>;
@@ -112,6 +114,9 @@ export async function applyEnvironment(cwd = process.cwd()): Promise<{ home: str
   setDefault("GITHUB_TOKEN", config.keys?.github);
   setDefault("GITLAB_TOKEN", config.keys?.gitlab);
   setDefault("GITLAB_HOST", config.gitlab?.host);
+  setDefault("ICHABOD_API_KEY", config.keys?.ichabod);
+  setDefault("ICHABOD_HOST", config.pdf?.host);
+  setDefault("RESUME_PDF_BROWSER", config.pdf?.browser);
   setDefault("OLLAMA_HOST", config.ollama?.host);
   setDefault("OLLAMA_MODEL", config.ollama?.model);
   if (config.ai && config.ai !== "auto") setDefault("RESUME_AI", config.ai);

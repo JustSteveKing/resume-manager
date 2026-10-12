@@ -2,6 +2,7 @@ import type { CommandContext } from "./context.ts";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { normalizeOllamaHost, OLLAMA_MODEL } from "../ai/index.ts";
+import { ICHABOD_HOST, ICHABOD_PRIVACY } from "../export/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, updateConfig } from "../config.ts";
 import { describeSpend, monthSpend } from "../costs.ts";
 import { CHECK_ICON, runDoctor } from "../doctor.ts";
@@ -58,7 +59,7 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
     else throw new Error("Usage: cv config budget <usd|off>");
     print(a === "off" ? "Tabstack budget removed" : `Tabstack budget: $${Number(a).toFixed(2)}/month`);
   } else if (what === "key") {
-    if (!["tabstack", "github", "gitlab"].includes(a ?? "") || !b) throw new Error("Usage: cv config key <tabstack|github|gitlab> <value|off>");
+    if (!["tabstack", "github", "gitlab", "ichabod"].includes(a ?? "") || !b) throw new Error("Usage: cv config key <tabstack|github|gitlab|ichabod> <value|off>");
     await updateConfig((c) => {
       c.keys ??= {};
       if (b === "off") delete c.keys[a as "tabstack"];
@@ -74,6 +75,22 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
       else c.ollama[field] = a;
     });
     print(`Ollama ${field}: ${a === "off" ? "default" : a}`);
+  } else if (what === "pdf-browser") {
+    if (a !== "local" && a !== "ichabod") throw new Error("Usage: cv config pdf-browser <local|ichabod>");
+    const c = await updateConfig((c) => void (c.pdf = { ...c.pdf, browser: a }));
+    print(`PDF browser: ${a}`);
+    if (a === "ichabod") {
+      print(`${ICHABOD_PRIVACY}`);
+      if (!c.keys?.ichabod && !process.env.ICHABOD_API_KEY) print("Add your key: cv config key ichabod <key>");
+    }
+  } else if (what === "ichabod-host") {
+    if (!a) throw new Error(`Usage: cv config ichabod-host <host|off> (default ${ICHABOD_HOST})`);
+    await updateConfig((c) => {
+      c.pdf ??= {};
+      if (a === "off") delete c.pdf.host;
+      else c.pdf.host = a;
+    });
+    print(`Ichabod host: ${a === "off" ? ICHABOD_HOST : a}`);
   } else if (what === "gitlab-host") {
     if (!a) throw new Error("Usage: cv config gitlab-host <https://gitlab.example.com|off>");
     await updateConfig((c) => {
@@ -86,7 +103,8 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
     print(`home     ${c.home ?? "—"}\nai       ${c.ai ?? "auto"}\nbudget   ${c.budget?.monthlyUsd ? `$${c.budget.monthlyUsd}` : "none"}`);
     print(`gitlab   ${c.gitlab?.host ?? "gitlab.com"}`);
     print(`ollama   ${c.ollama?.model ?? OLLAMA_MODEL} at ${normalizeOllamaHost(c.ollama?.host)}`);
-    for (const k of ["tabstack", "github", "gitlab"] as const) print(`key      ${k.padEnd(10)} ${maskKey(c.keys?.[k])}`);
+    print(`pdf      ${c.pdf?.browser ?? "local"}${c.pdf?.browser === "ichabod" ? ` at ${c.pdf.host ?? ICHABOD_HOST}` : ""}`);
+    for (const k of ["tabstack", "github", "gitlab", "ichabod"] as const) print(`key      ${k.padEnd(10)} ${maskKey(c.keys?.[k])}`);
   }
   return 0;
 }
