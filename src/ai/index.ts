@@ -203,7 +203,7 @@ export async function getAI(r?: Resume, choice: AiChoice = (process.env.RESUME_A
   if (choice === "ollama") return cached(new OllamaAI());
   const ollama = await probeOllama();
   if (ollama.state === "down") {
-    throw new NoAIError(`Ollama isn't running at ${ollamaHost()}. Install it from https://ollama.com and run \`ollama serve\` (then \`ollama pull ${ollamaModel()}\`).`);
+    throw new NoAIError(`Ollama isn't running at ${ollamaHost()}. Start it with \`ollama serve\`.`);
   }
   if (ollama.state === "unresponsive") {
     throw new Error(`Ollama at ${ollamaHost()} isn't responding (${ollama.reason}). Try again, or restart Ollama.`);

@@ -462,7 +462,7 @@ describe("TUI", () => {
     const ui = await setup();
     await ui.open("Settings");
     await new Promise((r) => setTimeout(r, 300)); // doctor checks
-    await ui.press("down"); // Tabstack budget
+    await ui.press("down", "down", "down"); // past the Ollama rows to Tabstack budget
     expect(ui.frame()).toMatch(/Tabstack budget\s+none/);
     await ui.press("enter");
     await ui.type("12.5");

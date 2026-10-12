@@ -24,7 +24,7 @@ const FIELDS: FormField[] = [
   { key: "gitlabUser", label: "GitLab user", kind: "text", hint: "From your GitLab profile; clear to skip GitLab" },
   { key: "gitlabHost", label: "GitLab host", kind: "text", hint: "Blank for gitlab.com, or e.g. gitlab.example.com" },
   { key: "top", label: "Portfolio size", kind: "number", hint: "How many repos to write up (default 8)" },
-  { key: "ai", label: "Write-ups", kind: "bool", hint: "Tabstack generate: skills summary and portfolio copy. Off = facts and rankings only" },
+  { key: "ai", label: "Write-ups (Tabstack)", kind: "bool", hint: "Tabstack generate: skills summary and portfolio copy. Off = facts and rankings only" },
   { key: "refresh", label: "Refresh cache", kind: "bool", hint: "GitHub data is cached for 24 hours" },
 ];
 
@@ -125,7 +125,7 @@ export function ReposView(props: { active: boolean; width: number; height: numbe
     }
   } else {
     wrap(
-      "Scans your GitHub and GitLab (gitlab.com or self-hosted): languages and frameworks from real dependency manifests (composer.json, package.json, go.mod…), a ranked portfolio with reasons, and optional write-ups. Projects mirrored on both count once. Any write-up claim whose numbers aren't in the data is dropped. Press r to scan.",
+      "Scans your GitHub and GitLab (gitlab.com or self-hosted): languages and frameworks from real dependency manifests (composer.json, package.json, go.mod…), a ranked portfolio with reasons, and optional write-ups (Tabstack generate). Projects mirrored on both count once. Any write-up claim whose numbers aren't in the data is dropped. Press r to scan.",
       w,
     ).forEach((t) => lines.push({ text: t, fg: C.dim }));
   }

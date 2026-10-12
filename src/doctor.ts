@@ -121,8 +121,8 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<Check[]> {
   const viaTabstack = process.env.RESUME_AI === "tabstack";
   const note = viaTabstack ? " (writing uses Tabstack)" : "";
   const off = viaTabstack ? "info" : "warn";
-  if (ollama.state === "down") add({ id: "ollama", label: "Ollama", status: off, detail: `Not running at ${ollamaHost()}: writing features are off${note}`, fix: `Install from https://ollama.com, run \`ollama serve\` and \`ollama pull ${model}\`` });
-  else if (ollama.state === "unresponsive") add({ id: "ollama", label: "Ollama", status: off, detail: `Not responding at ${ollamaHost()} (${ollama.reason})${note}`, fix: "Restart Ollama, or check the host in Settings" });
+  if (ollama.state === "down") add({ id: "ollama", label: "Ollama", status: off, detail: `Not running: writing features are off${note}`, fix: "Run `ollama serve` (install from ollama.com)" });
+  else if (ollama.state === "unresponsive") add({ id: "ollama", label: "Ollama", status: off, detail: `Not responding (${ollama.reason})${note}`, fix: "Restart Ollama, or check the host in Settings" });
   else if (!hasModel(ollama.models, model)) add({ id: "ollama", label: "Ollama", status: off, detail: `Running, but ${model} isn't pulled${note}`, fix: `Run \`ollama pull ${model}\`, or pick another model in Settings` });
   else add({ id: "ollama", label: "Ollama", status: "ok", detail: `${model} ready${note}` });
 

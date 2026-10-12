@@ -18,7 +18,7 @@ export const HELP: [string, string][] = [
   ["ctrl+s", "save multi-line text (or meta+enter)"],
   ["r", "run (Import, GitHub, Tailor, Export, Sources)"],
   ["p / o", "check / open PDF"],
-  ["w", "rewrite the selected text or highlight (writing coach)"],
+  ["w", "rewrite the selected text (writing coach)"],
   ["i", "interview prep (Applications)"],
   ["q / ctrl+c", "quit"],
 ];

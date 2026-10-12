@@ -83,7 +83,7 @@ export const formatUsd = (n: number) => (n < 0.01 ? `${Math.max(0, Math.round(n 
 export function describeSpend(s: MonthSpend): string {
   const parts = [`${formatUsd(s.usd)} this month (${s.month})`];
   if (s.budget !== undefined) parts.push(`budget ${formatUsd(s.budget)}`);
-  parts.push(`${s.tabstackCalls} Tabstack call(s)`);
+  parts.push(`${s.tabstackCalls} call(s)`);
   if (s.unpriced) parts.push(`${s.unpriced} unpriced`);
   return parts.join(" · ");
 }

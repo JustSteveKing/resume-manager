@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { OLLAMA_HOST, OLLAMA_MODEL } from "../../ai/index.ts";
+import { normalizeOllamaHost, OLLAMA_HOST, OLLAMA_MODEL } from "../../ai/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, updateConfig, type Config } from "../../config.ts";
 import { describeSpend, monthSpend, type MonthSpend } from "../../costs.ts";
 import { CHECK_ICON, runDoctor, type Check } from "../../doctor.ts";
@@ -70,14 +70,14 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
   };
 
   /** A config value mirrored into an env var. The environment wins at runtime, so show that, and only unset what Settings set. */
-  const settingRow = (o: { id: string; label: string; env: string; fallback: string; prompt: string; get: (c: Config) => string | undefined; set: (c: Config, v?: string) => void }): Row => {
+  const settingRow = (o: { id: string; label: string; env: string; fallback: string; show?: (v: string) => string; prompt: string; get: (c: Config) => string | undefined; set: (c: Config, v?: string) => void }): Row => {
     const fromConfig = o.get(config);
     const env = process.env[o.env];
     const source = env && env !== fromConfig ? " (environment)" : "";
     return {
       id: o.id,
       label: o.label,
-      value: `${env ?? fromConfig ?? o.fallback}${source}`,
+      value: `${(o.show ?? String)(env ?? fromConfig ?? o.fallback)}${source}`,
       edit: async () => {
         const v = await store.prompt(o.prompt, fromConfig ?? "");
         if (v === null) return;
@@ -105,6 +105,33 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
         else process.env.RESUME_AI = v[0];
       },
     },
+    settingRow({
+      id: "ollama-model",
+      label: "Ollama model",
+      env: "OLLAMA_MODEL",
+      fallback: OLLAMA_MODEL,
+      prompt: `Local model for writing (empty for ${OLLAMA_MODEL}); pull it with \`ollama pull\``,
+      get: (c) => c.ollama?.model,
+      set: (c, v) => {
+        c.ollama ??= {};
+        if (v) c.ollama.model = v;
+        else delete c.ollama.model;
+      },
+    }),
+    settingRow({
+      id: "ollama-host",
+      label: "Ollama host",
+      env: "OLLAMA_HOST",
+      fallback: OLLAMA_HOST,
+      show: normalizeOllamaHost,
+      prompt: `Ollama server (empty for ${OLLAMA_HOST})`,
+      get: (c) => c.ollama?.host,
+      set: (c, v) => {
+        c.ollama ??= {};
+        if (v) c.ollama.host = v;
+        else delete c.ollama.host;
+      },
+    }),
     {
       id: "budget",
       label: "Tabstack budget",
@@ -133,32 +160,6 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
       set: (c, v) => {
         if (v) c.gitlab = { host: v };
         else delete c.gitlab;
-      },
-    }),
-    settingRow({
-      id: "ollama-model",
-      label: "Ollama model",
-      env: "OLLAMA_MODEL",
-      fallback: OLLAMA_MODEL,
-      prompt: `Local model for writing (empty for ${OLLAMA_MODEL}); pull it with \`ollama pull\``,
-      get: (c) => c.ollama?.model,
-      set: (c, v) => {
-        c.ollama ??= {};
-        if (v) c.ollama.model = v;
-        else delete c.ollama.model;
-      },
-    }),
-    settingRow({
-      id: "ollama-host",
-      label: "Ollama host",
-      env: "OLLAMA_HOST",
-      fallback: OLLAMA_HOST,
-      prompt: `Ollama server (empty for ${OLLAMA_HOST})`,
-      get: (c) => c.ollama?.host,
-      set: (c, v) => {
-        c.ollama ??= {};
-        if (v) c.ollama.host = v;
-        else delete c.ollama.host;
       },
     }),
     {
