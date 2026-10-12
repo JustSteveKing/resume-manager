@@ -86,8 +86,8 @@ export function TailorView(props: { active: boolean; width: number; height: numb
 
   async function exportPdf() {
     if (!out) return;
-    const res = await store.run("Rendering tailored PDF", () =>
-      exportResume({ resume: store.resume, variant: out.variant, variantName: out.name, formats: ["pdf", "text"], ats: true }),
+    const res = await store.run("Rendering tailored PDF", (progress) =>
+      exportResume({ resume: store.resume, variant: out.variant, variantName: out.name, formats: ["pdf", "text"], ats: true, progress }),
     );
     const pdf = res?.pdfs[0];
     if (!pdf) return;

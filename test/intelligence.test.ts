@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { draftBullets, interviewQuestions, rewrite, rolesNeedingWork, templateQuestions } from "../src/ai/coach.ts";
 import { cached, getAI, NoAIError, normalizeOllamaHost, probeOllama } from "../src/ai/index.ts";
+import { isGrounded, unsupportedCredentials } from "../src/grounding.ts";
 import { fakeAI } from "./fixtures.ts";
 import { interviewPrep, prepMarkdown } from "../src/ai/prep.ts";
 import { ensureApplication, followUpsDue, learn, listApplications, setStatus, APPLICATIONS_DIR } from "../src/applications.ts";
@@ -45,6 +46,21 @@ describe("writing coach", () => {
     expect(out.map((o) => o.style)).toEqual(["shorter", "xyz"]);
     expect(out[0]!.text).toBe("Cut deploys from 40 to 8 minutes");
     expect(ai.prompts[0]).toContain("Role: Lead Engineer at Acme Corp");
+  });
+
+  test("drops rewrites that add credentials the facts don't mention", async () => {
+    const summary = "Backend engineer focused on API design and reliable distributed systems.";
+    const ai = fakeAI({
+      options: [
+        { style: "shorter", text: "Backend engineer for APIs and distributed systems." },
+        { style: "result", text: "Award-winning backend engineer with expertise in API design." },
+        { style: "xyz", text: "World-class engineer building reliable distributed systems." },
+      ],
+    });
+    const out = await rewrite(ai, summary, "summary");
+    expect(out.map((o) => o.style)).toEqual(["shorter"]);
+    expect(unsupportedCredentials("Award-winning, certified engineer", "Won the DX award in 2023")).toEqual(["certified"]);
+    expect(isGrounded("Award-winning engineer", "Won the DX award in 2023")).toBe(true);
   });
 
   test("cached() serves repeat requests without calling the model", async () => {

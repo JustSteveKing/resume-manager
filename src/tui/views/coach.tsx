@@ -109,9 +109,11 @@ export function CoachView(props: { active: boolean; width: number; height: numbe
         {wrap(q.question, inner).map((l, i) => (
           <Line key={i} text={l} fg={C.accent} bold />
         ))}
-        <Line text={fit(q.why, inner)} fg={C.dim} />
+        {wrap(q.why, inner).map((l, i) => (
+          <Line key={`why${i}`} text={l} fg={C.dim} />
+        ))}
         <box height={1} />
-        <box border borderStyle="rounded" borderColor={C.borderActive} height={Math.max(4, props.height - 12)}>
+        <box border borderStyle="rounded" borderColor={C.borderActive} height={Math.max(4, props.height - 12 - Math.max(0, wrap(q.why, inner).length - 1))}>
           <textarea
             key={session.at}
             ref={answerRef}

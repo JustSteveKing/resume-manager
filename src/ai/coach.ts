@@ -19,8 +19,8 @@ const STYLES: Record<"bullet" | "profile", Record<Style, string>> = {
   },
   profile: {
     shorter: "Shorter: same facts, about half the words",
-    result: "Lead with the strongest credential: open with what most sets this person apart",
-    xyz: "Focused: what they do, for whom, and the proof, in two sentences",
+    result: "Strongest credential first. Open with what most sets this person apart, using only credentials the facts state",
+    xyz: "Focused. What they do, for whom, and the proof, in two sentences",
   },
 };
 

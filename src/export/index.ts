@@ -51,16 +51,48 @@ export function ichabodEndpoint(
  * auth goes in an explicit header (which also keeps the key out of error messages).
  * browser.close() ends the session; disconnecting would leak it.
  */
-export async function connectIchabod(key = process.env.ICHABOD_API_KEY?.trim()): Promise<Browser> {
+export interface IchabodOptions {
+  key?: string;
+  /** Give up on one attempt after this long (default 20s). */
+  attemptMs?: number;
+  /** Attempts before failing (default 2). */
+  attempts?: number;
+  /** Progress for the UI: "Waiting for an Ichabod browser", retries. */
+  status?: (message: string) => void;
+  /** How to connect; tests pass a fake. */
+  connect?: (options: Parameters<typeof puppeteer.connect>[0]) => Promise<Browser>;
+}
+
+/**
+ * Ichabod sometimes takes minutes to hand out a browser, and an immediate retry is usually quick. So each
+ * attempt gets `attemptMs`, a session that arrives after we gave up is closed (not left running on
+ * Ichabod), and every later command is capped at a minute instead of Puppeteer's three.
+ */
+export async function connectIchabod(opts: IchabodOptions = {}): Promise<Browser> {
+  const key = opts.key ?? process.env.ICHABOD_API_KEY?.trim();
   if (!key) {
     throw new Error("PDF browser is Ichabod but no Ichabod key is set. Add it in Settings or with `cv config key ichabod <key>`, or switch back: `cv config pdf-browser local`.");
   }
+  const { attemptMs = 20_000, attempts = 2, status, connect = (o) => puppeteer.connect(o) } = opts;
   const endpoint = ichabodEndpoint();
-  try {
-    return await puppeteer.connect({ browserWSEndpoint: endpoint, protocol: "webDriverBiDi", headers: { Authorization: `Basic ${btoa(`api:${key}`)}` } });
-  } catch (e) {
-    throw new Error(`Couldn't connect to Ichabod at ${endpoint}: ${e instanceof Error ? e.message : e}`);
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    status?.(attempt === 1 ? "Waiting for an Ichabod browser" : `Ichabod is busy; trying again (${attempt}/${attempts})`);
+    const pending = connect({ browserWSEndpoint: endpoint, protocol: "webDriverBiDi", protocolTimeout: 60_000, headers: { Authorization: `Basic ${btoa(`api:${key}`)}` } });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const outcome = await Promise.race([
+      pending.then((browser) => ({ browser }), (error: unknown) => ({ error })),
+      new Promise<{ timedOut: true }>((resolve) => (timer = setTimeout(() => resolve({ timedOut: true }), attemptMs))),
+    ]);
+    clearTimeout(timer);
+    if ("browser" in outcome) return outcome.browser;
+    if ("error" in outcome) {
+      // Refused, unauthorised, bad host: retrying won't help.
+      const e = outcome.error;
+      throw new Error(`Couldn't connect to Ichabod at ${endpoint}: ${e instanceof Error ? e.message : e}`);
+    }
+    pending.then((browser) => browser.close(), () => {});
   }
+  throw new Error(`Ichabod didn't provide a browser within ${attemptMs / 1000}s (${attempts} tries); it may be busy. Try again, or switch PDF browser to local in Settings.`);
 }
 
 /** A browser shared across PDFs in one run, opened on first use. */
@@ -71,7 +103,7 @@ export class PdfRenderer {
    * `browser` overrides the configured choice (the TUI page preview always prints locally: it re-renders
    * on every edit). `open` replaces how the browser is obtained, for tests.
    */
-  constructor(private opts: { browser?: PdfBrowser; open?: () => Promise<Browser> } = {}) {}
+  constructor(private opts: { browser?: PdfBrowser; open?: () => Promise<Browser>; status?: (message: string) => void } = {}) {}
 
   /** Where this renderer prints. */
   get where(): PdfBrowser {
@@ -80,7 +112,7 @@ export class PdfRenderer {
 
   private open(): Promise<Browser> {
     if (this.opts.open) return this.opts.open();
-    if (this.where === "ichabod") return connectIchabod();
+    if (this.where === "ichabod") return connectIchabod({ status: this.opts.status });
     // CI runners (GitHub Actions) don't allow Chrome's sandbox.
     return puppeteer.launch({ args: process.env.CI ? ["--no-sandbox"] : [] });
   }
@@ -120,6 +152,8 @@ export interface ExportRequest {
   targetPages?: number;
   fit?: boolean;
   ats?: boolean;
+  /** Progress while a browser is being obtained (used when exportResume opens its own renderer). */
+  progress?: (message: string) => void;
 }
 
 export interface PdfResult {
@@ -142,7 +176,7 @@ export interface ExportResult {
 /** Without a renderer, one is opened for this export and closed after it (a cloud session, or a local Chrome). */
 export async function exportResume(req: ExportRequest, renderer?: PdfRenderer): Promise<ExportResult> {
   if (!renderer) {
-    const own = new PdfRenderer();
+    const own = new PdfRenderer({ status: req.progress });
     try {
       return await exportResume(req, own);
     } finally {

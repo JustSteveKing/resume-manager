@@ -45,9 +45,14 @@ export function ModalView(props: { width: number; height: number; sel: number; c
       </>
     );
   } else if (m.kind === "confirm") {
+    // Wrapped, not cut off: a confirm is often a warning the user must read in full before saying yes.
+    const lines = wrap(m.text, inner);
+    h = lines.length + 4;
     body = (
       <>
-        <Line text={fit(m.text, inner)} />
+        {lines.map((l, i) => (
+          <Line key={i} text={l} />
+        ))}
         <Hints keys={[["y", "yes"], ["n", "no"]]} />
       </>
     );

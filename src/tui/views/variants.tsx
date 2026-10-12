@@ -99,8 +99,8 @@ export function VariantsView(props: { active: boolean; width: number; height: nu
 
   async function preview(open: boolean) {
     if (!variant || !name) return;
-    const res = await store.run(`Rendering ${name}`, () =>
-      exportResume({ resume: store.resume, variant, variantName: name, formats: ["pdf"], ats: true }),
+    const res = await store.run(`Rendering ${name}`, (progress) =>
+      exportResume({ resume: store.resume, variant, variantName: name, formats: ["pdf"], ats: true, progress }),
     );
     const pdf = res?.pdfs[0];
     if (!pdf) return;

@@ -79,7 +79,7 @@ export async function rewriteFlow(store: Store, text: string, kind: TextKind, ro
     store.flash("No rewrite kept the original facts; try editing by hand", "info");
     return null;
   }
-  const picked = await store.pickText("Rewrite (numbers must match the original)", [
+  const picked = await store.pickText("Rewrite (no new numbers or credentials)", [
     ...options.map((o) => ({ label: o.label, text: o.text })),
     { label: "Keep original", text },
   ]);

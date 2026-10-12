@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { describePdf } from "../../export/describe.ts";
-import { exportResume, OUT_DIR, PdfRenderer, type Format, type PaperSize } from "../../export/index.ts";
+import { exportResume, OUT_DIR, pdfBrowser, PdfRenderer, type Format, type PaperSize } from "../../export/index.ts";
 import { ACCENTS, THEMES, themeById } from "../../export/themes.ts";
 import { loadVariant } from "../../variants.ts";
 import { openPath } from "../actions.ts";
@@ -80,8 +80,10 @@ export function ExportView(props: { active: boolean; width: number; height: numb
     if (!s.targets.length || !s.formats.length) return store.flash("Pick at least one target and format", "warn");
     const out: { text: string; fg?: string }[] = [];
     let first: string | undefined;
-    const renderer = new PdfRenderer();
-    const ok = await store.run(renderer.where === "ichabod" && s.formats.includes("pdf") ? "Exporting via Ichabod" : "Exporting", async (progress) => {
+    const viaIchabod = pdfBrowser() === "ichabod" && s.formats.includes("pdf");
+    const ok = await store.run(viaIchabod ? "Exporting via Ichabod" : "Exporting", async (progress) => {
+      const renderer = new PdfRenderer({ status: progress });
+      if (viaIchabod) out.push({ text: "PDFs printed on Ichabod (Mozilla cloud browser)", fg: C.dim });
       try {
         for (const t of s.targets) {
           const full = t === FULL;
@@ -160,7 +162,7 @@ export function ExportView(props: { active: boolean; width: number; height: numb
             <Line key={i} text={fit(l.text, w)} fg={l.fg} />
           ))}
         </box>
-        <Hints keys={[["r", "run export"], ["o", "open first PDF"], ["f", `open ${OUT_DIR}/`], ["esc", "back"]]} />
+        <Hints keys={[["r", "run export"], ["o", "open first PDF"], ["f", "open export folder"], ["esc", "back"]]} />
       </box>
     </Pane>
   );

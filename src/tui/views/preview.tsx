@@ -92,8 +92,9 @@ export function PreviewView(props: { active: boolean; width: number; height: num
   const maxScroll = Math.max(0, lines.length - bodyH);
 
   async function openPdf() {
-    const res = await store.run("Rendering PDF", () =>
+    const res = await store.run("Rendering PDF", (progress) =>
       exportResume({
+        progress,
         resume: store.resume,
         variant,
         variantName: name || undefined,

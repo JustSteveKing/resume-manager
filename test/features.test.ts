@@ -242,7 +242,7 @@ describe("Ichabod PDF browser", () => {
     });
     try {
       const env = { ICHABOD_HOST: `ws://127.0.0.1:${server.port}`, ICHABOD_ENGINE: undefined, ICHABOD_VERSION: undefined };
-      const err = await withEnv(env, () => connectIchabod("secret-key").catch((e: Error) => e));
+      const err = await withEnv(env, () => connectIchabod({ key: "secret-key", attempts: 1 }).catch((e: Error) => e));
       expect(err).toBeInstanceOf(Error);
       expect((err as Error).message).toContain("Couldn't connect to Ichabod");
       expect((err as Error).message).not.toContain("secret-key");
@@ -250,6 +250,39 @@ describe("Ichabod PDF browser", () => {
     } finally {
       server.stop(true);
     }
+  });
+
+  test("a slow Ichabod gets one retry; a late session is closed, not left running", async () => {
+    const statuses: string[] = [];
+    const closed: string[] = [];
+    const fakeBrowser = (name: string) => ({ close: async () => void closed.push(name) }) as never;
+    let calls = 0;
+    const browser = await connectIchabod({
+      key: "k",
+      attemptMs: 30,
+      status: (m) => statuses.push(m),
+      connect: () => {
+        calls++;
+        // First attempt answers only after we've given up; the second answers at once.
+        return calls === 1 ? Bun.sleep(80).then(() => fakeBrowser("late")) : Promise.resolve(fakeBrowser("second"));
+      },
+    });
+    expect(calls).toBe(2);
+    expect(statuses).toEqual(["Waiting for an Ichabod browser", "Ichabod is busy; trying again (2/2)"]);
+    await Bun.sleep(100);
+    expect(closed).toEqual(["late"]);
+    await (browser as { close(): Promise<void> }).close();
+    expect(closed).toEqual(["late", "second"]);
+  });
+
+  test("Ichabod: a refused connection isn't retried; a busy one fails with a clear message", async () => {
+    let calls = 0;
+    const refused = await connectIchabod({ key: "k", connect: async () => (calls++, Promise.reject(new Error("401 Unauthorized"))) }).catch((e: Error) => e);
+    expect(calls).toBe(1);
+    expect((refused as Error).message).toContain("401 Unauthorized");
+    const busy = await connectIchabod({ key: "k", attemptMs: 10, connect: () => new Promise(() => {}) }).catch((e: Error) => e);
+    expect((busy as Error).message).toContain("didn't provide a browser within 0.01s (2 tries)");
+    expect((busy as Error).message).toContain("switch PDF browser to local");
   });
 
   test("exports use Ichabod when chosen, and say so when the key is missing", async () => {

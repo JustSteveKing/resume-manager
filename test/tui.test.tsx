@@ -124,6 +124,7 @@ describe("TUI", () => {
     const ui = await setup();
     await ui.open("Work");
     await ui.press("a"); // nav: Work → list → add
+    await until(() => ui.frame().includes("not saved: Work #3 needs Name"));
     expect(ui.frame()).toContain("not saved: Work #3 needs Name");
     await ui.type("Brand New Co");
     await ui.press("enter");

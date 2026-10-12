@@ -199,7 +199,11 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
   useKeys(props.active, async (key) => {
     if (key.name === "up" || key.name === "k") setSel((s) => Math.max(0, s - 1));
     else if (key.name === "down" || key.name === "j") setSel((s) => Math.min(rows.length - 1, s + 1));
-    else if (key.name === "return" || key.name === "e") await current?.edit();
+    else if (key.name === "return" || key.name === "e") {
+      await current?.edit();
+      // A change (key, PDF browser, Ollama host…) can change what the checks below say.
+      void refresh();
+    }
     else if (key.name === "r") await refresh(true);
     else if (key.name === "T" || (key.shift && key.name === "t")) {
       if (await store.confirm("Testing Tabstack uses one paid Extract call. Continue?")) await refresh(true, true);
