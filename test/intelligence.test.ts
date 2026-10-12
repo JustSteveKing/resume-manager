@@ -3,7 +3,7 @@ import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { draftBullets, interviewQuestions, rewrite, rolesNeedingWork, templateQuestions } from "../src/ai/coach.ts";
-import { cached } from "../src/ai/index.ts";
+import { cached, getAI } from "../src/ai/index.ts";
 import { fakeAI } from "./fixtures.ts";
 import { interviewPrep, prepMarkdown } from "../src/ai/prep.ts";
 import { ensureApplication, followUpsDue, learn, listApplications, setStatus, APPLICATIONS_DIR } from "../src/applications.ts";
@@ -54,6 +54,59 @@ describe("writing coach", () => {
     await rewrite(ai, "Some text", "highlight");
     await rewrite(ai, "Some text", "highlight");
     expect(inner.prompts).toHaveLength(1);
+  });
+});
+
+describe("ollama", () => {
+  // A stand-in Ollama server: lists pulled models and answers /api/chat with a canned reply.
+  const bodies: any[] = [];
+  let pulled = ["qwen3:8b"];
+  const server = Bun.serve({
+    port: 0,
+    routes: {
+      "/api/tags": () => Response.json({ models: pulled.map((name) => ({ name })) }),
+      "/api/chat": {
+        POST: async (req) => {
+          bodies.push(await req.json());
+          return Response.json({ message: { role: "assistant", content: JSON.stringify({ options: [{ style: "shorter", text: "Cut deploys from 40 to 8 minutes" }] }) } });
+        },
+      },
+    },
+  });
+  const withHost = async <T>(fn: () => Promise<T>) => {
+    const old = process.env.OLLAMA_HOST;
+    process.env.OLLAMA_HOST = server.url.origin;
+    try {
+      return await fn();
+    } finally {
+      process.env.OLLAMA_HOST = old;
+    }
+  };
+  afterAll(() => server.stop(true));
+
+  test("auto uses Ollama when it's running, sending the schema as the format", async () => {
+    const ai = await withHost(() => getAI(undefined, "auto"));
+    expect(ai.name).toBe("ollama");
+    expect(ai.model).toBe("qwen3:8b");
+    const out = await withHost(() => rewrite(ai, role.highlights![0]!, "highlight", role));
+    expect(out[0]!.text).toBe("Cut deploys from 40 to 8 minutes");
+    expect(bodies.at(-1)).toMatchObject({ model: "qwen3:8b", stream: false, format: { type: "object" } });
+    expect(bodies.at(-1).messages.map((m: { role: string }) => m.role)).toEqual(["system", "user"]);
+  });
+
+  test("auto refuses to switch to a paid model when the local model isn't pulled", async () => {
+    pulled = ["llama3.1:8b"];
+    try {
+      await expect(withHost(() => getAI(undefined, "auto"))).rejects.toThrow("ollama pull qwen3:8b");
+    } finally {
+      pulled = ["qwen3:8b"];
+    }
+  });
+
+  test("auto skips Ollama when it isn't running", async () => {
+    // test/setup.ts points OLLAMA_HOST at a closed port.
+    const ai = await getAI(undefined, "auto").catch((e: Error) => e);
+    expect(ai instanceof Error ? ai.message : ai.name).not.toMatch(/^ollama$|isn't pulled/);
   });
 });
 

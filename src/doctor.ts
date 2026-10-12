@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { access, constants, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import puppeteer from "puppeteer";
+import { hasModel, ollamaHost, ollamaModel, ollamaModels } from "./ai/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, resolveHome } from "./config.ts";
 import { describeSpend, monthSpend } from "./costs.ts";
 import { accountsFromResume } from "./forges/index.ts";
@@ -112,11 +113,18 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<Check[]> {
     }
   } else add({ id: "tabstack", label: "Tabstack", status: "ok", detail: `Key ${maskKey(ts)} (not tested: testing uses a paid call)` });
 
+  // Ollama (local, so the live check is free and always runs)
+  const ollama = await ollamaModels();
+  const model = ollamaModel();
+  if (!ollama) add({ id: "ollama", label: "Ollama", status: "info", detail: `Not running at ${ollamaHost()}`, fix: "Install Ollama and run `ollama serve` for free, local writing help" });
+  else if (!hasModel(ollama, model)) add({ id: "ollama", label: "Ollama", status: "warn", detail: `Running, but ${model} isn't pulled`, fix: `Run \`ollama pull ${model}\`, or pick another model in Settings` });
+  else add({ id: "ollama", label: "Ollama", status: "ok", detail: `${model} ready${process.env.RESUME_AI && process.env.RESUME_AI !== "ollama" ? ` (writing uses ${process.env.RESUME_AI})` : ""}` });
+
   // Claude
   const anthropicKey = process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN;
   const profile = await exists(join(process.env.HOME ?? "", ".config", "anthropic"));
   if (!anthropicKey && !profile) {
-    add({ id: "claude", label: "Claude", status: "info", detail: `Not set up: writing features use ${ts ? "Tabstack" : "nothing"}`, fix: "Add an Anthropic key in Settings, or run `ant auth login`" });
+    add({ id: "claude", label: "Claude", status: "info", detail: `Not set up: writing features use ${ollama ? "Ollama" : ts ? "Tabstack" : "nothing"}`, fix: "Add an Anthropic key in Settings, or run `ant auth login`" });
   } else if (opts.live) {
     try {
       // Token counting is free, so it's a no-cost key check.

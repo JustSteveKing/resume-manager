@@ -13,7 +13,9 @@ export const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 export const Config = z.object({
   /** Folder holding resume.json, variants/, applications/, dist/… */
   home: z.string().optional(),
-  ai: z.enum(["auto", "claude", "tabstack"]).optional(),
+  ai: z.enum(["auto", "ollama", "claude", "tabstack"]).optional(),
+  /** Local model via Ollama (default http://localhost:11434, qwen3:8b). */
+  ollama: z.object({ host: z.string().optional(), model: z.string().optional() }).optional(),
   keys: z
     .object({ tabstack: z.string().optional(), anthropic: z.string().optional(), github: z.string().optional(), gitlab: z.string().optional() })
     .optional(),
@@ -97,6 +99,8 @@ export async function applyEnvironment(cwd = process.cwd()): Promise<{ home: str
   setDefault("GITHUB_TOKEN", config.keys?.github);
   setDefault("GITLAB_TOKEN", config.keys?.gitlab);
   setDefault("GITLAB_HOST", config.gitlab?.host);
+  setDefault("OLLAMA_HOST", config.ollama?.host);
+  setDefault("OLLAMA_MODEL", config.ollama?.model);
   if (config.ai && config.ai !== "auto") setDefault("RESUME_AI", config.ai);
   return { home, source, config };
 }

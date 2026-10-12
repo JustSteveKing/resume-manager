@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { OLLAMA_MODEL } from "../../ai/index.ts";
 import { CONFIG_FILE, loadConfig, maskKey, updateConfig, type Config } from "../../config.ts";
 import { describeSpend, monthSpend, type MonthSpend } from "../../costs.ts";
 import { CHECK_ICON, runDoctor, type Check } from "../../doctor.ts";
@@ -67,10 +68,11 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
     {
       id: "ai",
       label: "Writing AI",
-      value: config.ai ?? "auto (Claude if set up, else Tabstack)",
+      value: config.ai ?? "auto (Ollama if running, else Claude, else Tabstack)",
       edit: async () => {
         const v = await store.choose("Which model writes?", [
-          { value: "auto" as const, label: "auto: Claude if set up, else Tabstack" },
+          { value: "auto" as const, label: "auto: Ollama if running, else Claude, else Tabstack" },
+          { value: "ollama" as const, label: "ollama: local model, free and private" },
           { value: "claude" as const, label: "claude" },
           { value: "tabstack" as const, label: "tabstack" },
         ]);
@@ -112,6 +114,38 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
         }, `GitLab host: ${v.trim() || "gitlab.com"}`);
         if (v.trim()) process.env.GITLAB_HOST = v.trim();
         else delete process.env.GITLAB_HOST;
+      },
+    },
+    {
+      id: "ollama-model",
+      label: "Ollama model",
+      value: config.ollama?.model ?? process.env.OLLAMA_MODEL ?? OLLAMA_MODEL,
+      edit: async () => {
+        const v = await store.prompt(`Local model for writing (empty for ${OLLAMA_MODEL}); pull it with \`ollama pull\``, config.ollama?.model ?? "");
+        if (v === null) return;
+        await save((c) => {
+          c.ollama ??= {};
+          if (v.trim()) c.ollama.model = v.trim();
+          else delete c.ollama.model;
+        }, `Ollama model: ${v.trim() || OLLAMA_MODEL}`);
+        if (v.trim()) process.env.OLLAMA_MODEL = v.trim();
+        else delete process.env.OLLAMA_MODEL;
+      },
+    },
+    {
+      id: "ollama-host",
+      label: "Ollama host",
+      value: config.ollama?.host ?? process.env.OLLAMA_HOST ?? "http://localhost:11434",
+      edit: async () => {
+        const v = await store.prompt("Ollama server (empty for http://localhost:11434)", config.ollama?.host ?? "");
+        if (v === null) return;
+        await save((c) => {
+          c.ollama ??= {};
+          if (v.trim()) c.ollama.host = v.trim();
+          else delete c.ollama.host;
+        }, `Ollama host: ${v.trim() || "http://localhost:11434"}`);
+        if (v.trim()) process.env.OLLAMA_HOST = v.trim();
+        else delete process.env.OLLAMA_HOST;
       },
     },
     {

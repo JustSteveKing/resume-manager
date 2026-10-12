@@ -37,7 +37,7 @@ API keys go in **Settings** (in the TUI) or `cv config key <tabstack|anthropic|g
 Every change saves immediately. The header shows `✔ saved`, or why it can't save yet (for example, a new entry still needs its required name).
 
 - **Preview draws the real PDF in the terminal**: full resolution in Kitty, Ghostty, WezTerm and iTerm2 (Kitty graphics or Sixel), Unicode blocks anywhere else. `[ ]` turn pages, `c` cycles themes and `a` accents to try a look, `s` saves it, `t` switches to the plain-text (ATS) view. It re-renders as you edit, using a Chrome kept warm for the session.
-- **Settings** (under SETUP): API keys, which AI writes, a monthly budget, preview mode, this month's spend, and the doctor's checks (`r` tests connections for free; `T` tests Tabstack, which costs one call).
+- **Settings** (under SETUP): API keys, which AI writes (and the Ollama model and host), a monthly budget, preview mode, this month's spend, and the doctor's checks (`r` tests connections for free; `T` tests Tabstack, which costs one call).
 - **Press `:` (or `ctrl+p`) and type** to do anything without memorising keys: "add work", "import json", "export", "sort", "scan github", "go to talks"…
 - **`u` undoes any change** (edits, deletes, sorts, imports, merges, even replacing the whole resume); `U` redoes. The status bar shows what `u` will undo.
 - **First run** (no resume yet) opens a welcome screen: import a JSON Resume, start from your GitHub, fill in your details, or explore with sample data.
@@ -102,7 +102,7 @@ Import from any URL (personal site, talks page, author page, GitHub). Tabstack e
 Every Claude call is priced from its actual token usage (by the model that ran, since fallbacks can switch models) and logged in `.cache/spend.json`. Tabstack calls are counted; its SDK publishes no per-call prices, so Extract and Generate show as *unpriced*, and Research is priced at the documented ~$2 fast rate. Set a monthly cap with `cv config budget 10` or in Settings: a priced call that would exceed it is refused with a clear message. `cv spend` shows the month so far.
 
 ### AI writing help
-The writing features use **Claude** (`claude-opus-5-5`) when `ANTHROPIC_API_KEY` or an `ant auth login` profile is present, and fall back to Tabstack `generate` otherwise (force one with `RESUME_AI=claude|tabstack`). Answers are cached by request in `.cache/ai/`, so repeating a request is free. Every feature has the same rule: **any number the model writes must already be in your facts**; anything else is dropped and reported.
+The writing features use a **local model via [Ollama](https://ollama.com)** when it's running (free, and nothing leaves your machine; default `qwen3:8b`, change it with `cv config ollama-model <name>` or in Settings). Without Ollama they use **Claude** (`claude-opus-5-5`) when `ANTHROPIC_API_KEY` or an `ant auth login` profile is present, then Tabstack `generate`. Force one with `cv config ai <ollama|claude|tabstack>` or `RESUME_AI`. If Ollama is running but the model isn't pulled, you get an error telling you to `ollama pull` it; it won't quietly switch to a paid model. Repository write-ups and tailored copy still use Tabstack `generate`. Answers are cached by request in `.cache/ai/`, so repeating a request is free. Every feature has the same rule: **any number the model writes must already be in your facts**; anything else is dropped and reported.
 
 - **Writing coach:** press `w` on a summary, title or highlight (or `bun start rewrite "…"`): shorter, result-first, and "did X, measured by Y, by doing Z" rewrites. Pick one or keep the original; `u` undoes.
 - **Coach (achievement interviewer):** roles missing numbers or with long summaries are flagged. Answer 2-3 questions per role and your answers become quantified bullets to tick and add. Without an AI key it uses template questions and offers your answers as draft highlights.
@@ -225,7 +225,7 @@ Your data stays out of git: `resume.json`, `variants/` and `applications/` are g
 | `src/cli/` | Commands, one file per area (`setup`, `resume`, `apply`, `grow`), dispatched from `index.ts`; options in `context.ts` |
 | `src/tui/` | OpenTUI app (`app.tsx`, `form.tsx`, `views/`); `tui/commands.ts` is the palette's action list |
 
-Env: `GITLAB_TOKEN`, `GITLAB_HOST` (self-hosted), `RESUME_HOME` (data folder), `RESUME_CONFIG_DIR` (`~/.config/resume-manager`), `RESUME_AI`, `GITHUB_TOKEN` (optional), `RESUME_CACHE_DIR` (`.cache`), `RESUME_REPORTS_DIR` (`reports`), `RESUME_PATH` (`resume.json`), `RESUME_OUT_DIR` (`dist`), `RESUME_VARIANTS_DIR` (`variants`), `RESUME_APPLICATIONS_DIR` (`applications`), `TABSTACK_API_KEY`.
+Env: `OLLAMA_HOST` (`http://localhost:11434`), `OLLAMA_MODEL` (`qwen3:8b`), `GITLAB_TOKEN`, `GITLAB_HOST` (self-hosted), `RESUME_HOME` (data folder), `RESUME_CONFIG_DIR` (`~/.config/resume-manager`), `RESUME_AI`, `GITHUB_TOKEN` (optional), `RESUME_CACHE_DIR` (`.cache`), `RESUME_REPORTS_DIR` (`reports`), `RESUME_PATH` (`resume.json`), `RESUME_OUT_DIR` (`dist`), `RESUME_VARIANTS_DIR` (`variants`), `RESUME_APPLICATIONS_DIR` (`applications`), `TABSTACK_API_KEY`.
 
 ```sh
 bun test

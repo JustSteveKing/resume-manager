@@ -21,7 +21,9 @@ export interface AiRequest<T extends z.ZodType> {
 }
 
 export interface AI {
-  name: "claude" | "tabstack";
+  name: "ollama" | "claude" | "tabstack";
+  /** Model that answers, when it isn't the Claude default (part of the cache key). */
+  model?: string;
   json<T extends z.ZodType>(req: AiRequest<T>): Promise<z.infer<T>>;
 }
 
@@ -34,6 +36,73 @@ export const WRITING_RULES = `Rules:
 - Plain, specific, confident. No clichés ("passionate", "cutting-edge", "robust", "seamless", "leveraged").
 - Lead with a strong past-tense verb for finished roles, present tense for current ones.
 - British English.`;
+
+// ---------- Ollama (local, default) ----------
+
+export const OLLAMA_MODEL = "qwen3:8b";
+export const ollamaHost = () => (process.env.OLLAMA_HOST ?? "http://localhost:11434").replace(/\/$/, "");
+export const ollamaModel = () => process.env.OLLAMA_MODEL || OLLAMA_MODEL;
+
+/** Models Ollama has pulled, or undefined when it isn't running. Local and free, so safe to probe. */
+export async function ollamaModels(host = ollamaHost()): Promise<string[] | undefined> {
+  try {
+    const res = await fetch(`${host}/api/tags`, { signal: AbortSignal.timeout(1000) });
+    if (!res.ok) return undefined;
+    return ((await res.json()) as { models?: { name: string }[] }).models?.map((m) => m.name) ?? [];
+  } catch {
+    return undefined;
+  }
+}
+
+/** "qwen3" is pulled as "qwen3:latest". */
+export const hasModel = (models: string[], model: string) => models.some((m) => m === model || m === `${model}:latest`);
+
+/** Local model via Ollama's chat API, with the schema as a structured-output format. No spend to record. */
+class OllamaAI implements AI {
+  name = "ollama" as const;
+  constructor(
+    public model = ollamaModel(),
+    private host = ollamaHost(),
+  ) {}
+
+  async json<T extends z.ZodType>(req: AiRequest<T>): Promise<z.infer<T>> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.host}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: this.model,
+          stream: false,
+          // Thinking models (qwen3…) are many times slower with it and the schema keeps answers on track.
+          think: false,
+          format: z.toJSONSchema(req.schema),
+          options: { temperature: 0.4 },
+          messages: [
+            { role: "system", content: req.system },
+            { role: "user", content: req.prompt },
+          ],
+        }),
+      });
+    } catch {
+      throw new Error(`Ollama isn't running at ${this.host}. Start it with \`ollama serve\`, or choose another AI in Settings.`);
+    }
+    if (!res.ok) {
+      const detail = ((await res.json().catch(() => ({}))) as { error?: string }).error ?? res.statusText;
+      throw new Error(`Ollama (${this.model}): ${detail}${res.status === 404 ? `. Run \`ollama pull ${this.model}\`` : ""}`);
+    }
+    const content = ((await res.json()) as { message?: { content?: string } }).message?.content ?? "";
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      throw new Error(`Ollama (${this.model}) returned output that wasn't JSON`);
+    }
+    const out = req.schema.safeParse(parsed);
+    if (!out.success) throw new Error(`Ollama (${this.model}) returned output that didn't match the expected shape`);
+    return out.data;
+  }
+}
 
 // ---------- Claude ----------
 
@@ -95,8 +164,9 @@ class TabstackAI implements AI {
 export function cached(ai: AI, dir = join(CACHE_DIR, "ai")): AI {
   return {
     name: ai.name,
+    model: ai.model,
     async json(req) {
-      const key = Bun.hash(JSON.stringify([ai.name, MODEL, req.system, req.prompt, z.toJSONSchema(req.schema)])).toString(16);
+      const key = Bun.hash(JSON.stringify([ai.name, ai.model ?? MODEL, req.system, req.prompt, z.toJSONSchema(req.schema)])).toString(16);
       const file = Bun.file(join(dir, `${key}.json`));
       if (await file.exists()) {
         const hit = req.schema.safeParse(await file.json());
@@ -119,17 +189,29 @@ async function hasClaudeCredentials(): Promise<boolean> {
   }
 }
 
-export type AiChoice = "auto" | "claude" | "tabstack";
+export type AiChoice = "auto" | "ollama" | "claude" | "tabstack";
 
 /**
- * Pick the writing model: Claude when credentials exist (best writing), else Tabstack generate
- * (needs TABSTACK_API_KEY and a URL in basics: website or GitHub profile). RESUME_AI forces one.
+ * Pick the writing model: a local Ollama model when Ollama is running (free, private), else Claude
+ * when credentials exist, else Tabstack generate (needs TABSTACK_API_KEY and a URL in basics:
+ * website or GitHub profile). RESUME_AI forces one.
  */
-export async function getAI(r?: Resume, choice: AiChoice = (process.env.RESUME_AI as AiChoice) ?? "auto"): Promise<AI> {
+export async function getAI(r?: Resume, choice: AiChoice = (process.env.RESUME_AI as AiChoice) || "auto"): Promise<AI> {
+  if (choice === "ollama") return cached(new OllamaAI());
+  if (choice === "auto") {
+    const models = await ollamaModels();
+    if (models) {
+      // Ollama is running but the model isn't pulled: say so rather than quietly switching to a paid model.
+      if (!hasModel(models, ollamaModel())) {
+        throw new Error(`Ollama is running but ${ollamaModel()} isn't pulled. Run \`ollama pull ${ollamaModel()}\`, set another model in Settings, or choose Claude.`);
+      }
+      return cached(new OllamaAI());
+    }
+  }
   if (choice === "claude" || (choice === "auto" && (await hasClaudeCredentials()))) return cached(new ClaudeAI());
   const url = r?.basics.url ?? r?.basics.profiles?.find((p) => p.url)?.url;
   if ((choice === "tabstack" || choice === "auto") && process.env.TABSTACK_API_KEY && url) return cached(new TabstackAI(url));
   throw new Error(
-    "No AI configured. Set ANTHROPIC_API_KEY (or run `ant auth login`) for Claude, or TABSTACK_API_KEY plus a website in Basics for Tabstack.",
+    "No AI configured. Start Ollama (`ollama serve`) for a local model, set ANTHROPIC_API_KEY (or run `ant auth login`) for Claude, or TABSTACK_API_KEY plus a website in Basics for Tabstack.",
   );
 }

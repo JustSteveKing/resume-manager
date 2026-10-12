@@ -48,7 +48,7 @@ export async function cmdDoctor({ command, values, positionals, env }: CommandCo
 export async function cmdConfig({ command, values, positionals, env }: CommandContext): Promise<number> {
   const [what, a, b] = positionals;
   if (what === "ai") {
-    if (!["auto", "claude", "tabstack"].includes(a ?? "")) throw new Error("Usage: cv config ai <auto|claude|tabstack>");
+    if (!["auto", "ollama", "claude", "tabstack"].includes(a ?? "")) throw new Error("Usage: cv config ai <auto|ollama|claude|tabstack>");
     await updateConfig((c) => void (c.ai = a as "auto"));
     print(`AI: ${a}`);
   } else if (what === "budget") {
@@ -64,6 +64,15 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
       else c.keys[a as "tabstack"] = b;
     });
     print(`${a} key: ${b === "off" ? "removed" : maskKey(b)} (stored in ${CONFIG_FILE}, owner-only)`);
+  } else if (what === "ollama-model" || what === "ollama-host") {
+    if (!a) throw new Error(`Usage: cv config ${what} <${what === "ollama-model" ? "model" : "http://host:11434"}|off>`);
+    const field = what === "ollama-model" ? "model" : "host";
+    await updateConfig((c) => {
+      c.ollama ??= {};
+      if (a === "off") delete c.ollama[field];
+      else c.ollama[field] = a;
+    });
+    print(`Ollama ${field}: ${a === "off" ? "default" : a}`);
   } else if (what === "gitlab-host") {
     if (!a) throw new Error("Usage: cv config gitlab-host <https://gitlab.example.com|off>");
     await updateConfig((c) => {
@@ -75,6 +84,7 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
     const c = await loadConfig();
     print(`home     ${c.home ?? "—"}\nai       ${c.ai ?? "auto"}\nbudget   ${c.budget?.monthlyUsd ? `$${c.budget.monthlyUsd}` : "none"}`);
     print(`gitlab   ${c.gitlab?.host ?? "gitlab.com"}`);
+    print(`ollama   ${c.ollama?.model ?? "default model"} at ${c.ollama?.host ?? "localhost:11434"}`);
     for (const k of ["tabstack", "anthropic", "github", "gitlab"] as const) print(`key      ${k.padEnd(10)} ${maskKey(c.keys?.[k])}`);
   }
   return 0;
