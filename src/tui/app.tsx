@@ -174,7 +174,7 @@ export function App(props: { onQuit: () => void; firstRun?: boolean }) {
     { id: "sections", label: showAll ? "Hide empty sections" : "Show all sections", keywords: "awards certificates references volunteer interests", group: "App", run: () => setShowAll((v) => !v) },
     { id: "settings", label: "Settings and API keys", keywords: "config tabstack ollama model github token budget", group: "App", run: () => goTo("settings") },
     { id: "doctor", label: "Check setup (doctor)", keywords: "chrome keys privacy gitignore", group: "App", run: () => goTo("settings") },
-    { id: "spend", label: "Spending this month", keywords: "cost budget usage", group: "App", run: () => goTo("settings") },
+    { id: "spend", label: "Tabstack spending this month", keywords: "cost budget usage spend", group: "App", run: () => goTo("settings") },
     { id: "keys", label: "Keyboard shortcuts", keywords: "help", keys: "?", group: "App", run: () => store.setModal({ kind: "help" }) },
     { id: "quit", label: "Quit", keys: "q", group: "App", run: props.onQuit },
   ];

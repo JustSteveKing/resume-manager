@@ -20,10 +20,10 @@ Setup:
   config ai <auto|ollama|tabstack>
   config ollama-model <name|off>  Local model for writing features (default qwen3:8b)
   config ollama-host <url|off>    Ollama server (default http://localhost:11434)
-  config budget <usd|off>         Monthly cap on priced AI calls
+  config budget <usd|off>         Monthly cap on Tabstack spend (Research is the priced call)
   config key <tabstack|github|gitlab> <value|off>
   config gitlab-host <url|off>    Self-hosted GitLab (default gitlab.com)
-  spend                           AI and Tabstack spend this month
+  spend                           Tabstack spend this month (writing on Ollama is free)
 
 Commands:
   validate [--strict]             Schema + content + writing checks. Exit 1 on errors (or warnings with --strict)

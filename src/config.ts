@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 
 // User config (~/.config/resume-manager/config.json): where your resume lives, API keys, AI choice
-// and budget. Kept outside any repo. This module must not import other app modules: cli.ts loads it
+// and the Tabstack budget. Kept outside any repo. This module must not import other app modules: cli.ts loads it
 // first so the paths it sets are in place before anything reads them.
 
 export const CONFIG_DIR = process.env.RESUME_CONFIG_DIR ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "resume-manager");

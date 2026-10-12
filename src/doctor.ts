@@ -176,8 +176,8 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<Check[]> {
   add({ id: "preview", label: "In-terminal PDF preview", status: image === "blocks" ? "info" : "ok", detail: image === "blocks" ? "Low-resolution blocks (this terminal has no image protocol)" : `Full resolution via ${image}`, fix: image === "blocks" ? "Kitty, Ghostty, WezTerm or iTerm2 show pages at full resolution" : undefined });
 
   const spend = await monthSpend().catch((e: Error) => e);
-  if (spend instanceof Error) add({ id: "spend", label: "Spend", status: "error", detail: spend.message });
-  else add({ id: "spend", label: "Spend", status: spend.budget !== undefined && spend.usd > spend.budget * 0.8 ? "warn" : "info", detail: describeSpend(spend), fix: spend.budget === undefined ? "Set a monthly budget in Settings to cap priced AI calls" : undefined });
+  if (spend instanceof Error) add({ id: "spend", label: "Tabstack spend", status: "error", detail: spend.message });
+  else add({ id: "spend", label: "Tabstack spend", status: spend.budget !== undefined && spend.usd > spend.budget * 0.8 ? "warn" : "info", detail: describeSpend(spend), fix: spend.budget === undefined ? "Set a Tabstack budget in Settings to cap Research spend" : undefined });
   add({ id: "config", label: "Config file", status: "info", detail: CONFIG_FILE });
   return checks;
 }

@@ -18,7 +18,7 @@ interface Row {
   edit: () => Promise<void>;
 }
 
-/** Settings: keys, AI choice, budget, preview, plus the doctor's checks. Saved to ~/.config, never the repo. */
+/** Settings: keys, AI choice, Tabstack budget, preview, plus the doctor's checks. Saved to ~/.config, never the repo. */
 export function SettingsView(props: { active: boolean; width: number; height: number; onBack: () => void; intent?: Intent; imageProtocol?: string }) {
   const store = useStore();
   const [config, setConfig] = useState<Config>({});
@@ -107,17 +107,17 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
     },
     {
       id: "budget",
-      label: "Monthly budget",
+      label: "Tabstack budget",
       value: config.budget?.monthlyUsd ? `$${config.budget.monthlyUsd.toFixed(2)}` : "none",
       edit: async () => {
-        const v = await store.prompt("Monthly cap on priced AI calls in USD (empty for none)", config.budget?.monthlyUsd?.toString() ?? "");
+        const v = await store.prompt("Monthly cap on Tabstack spend in USD (empty for none)", config.budget?.monthlyUsd?.toString() ?? "");
         if (v === null) return;
         const n = Number(v);
         if (v.trim() && !(n > 0)) return store.flash("Enter a positive number", "warn");
         await save((c) => {
           if (v.trim()) c.budget = { monthlyUsd: n };
           else delete c.budget;
-        }, v.trim() ? `Budget: $${n.toFixed(2)}/month` : "Budget removed");
+        }, v.trim() ? `Tabstack budget: $${n.toFixed(2)}/month` : "Tabstack budget removed");
       },
     },
     keyRow("tabstack", "Tabstack key"),
@@ -199,7 +199,7 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
           <Line key={r.id} text={split(`${r.label.padEnd(16)} ${r.value}`, "", w)} bg={i === sel ? (props.active ? C.sel : C.selDim) : undefined} />
         ))}
         <box height={1} />
-        {spend && <Line text={fit(`Spend: ${describeSpend(spend)}`, w)} fg={spend.budget && spend.usd > spend.budget * 0.8 ? C.warn : C.dim} />}
+        {spend && <Line text={fit(`Tabstack spend: ${describeSpend(spend)}`, w)} fg={spend.budget && spend.usd > spend.budget * 0.8 ? C.warn : C.dim} />}
         <box flexDirection="column" height={checksH + 1} border={["top"]} borderColor={C.border}>
           {checks.slice(start, start + checksH).map((c) => (
             <Line key={c.id} text={fit(`${CHECK_ICON[c.status]} ${c.label.padEnd(24)} ${c.detail}${c.fix && c.status !== "ok" ? `  → ${c.fix}` : ""}`, w)} fg={STATUS_COLOR[c.status]} />

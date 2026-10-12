@@ -38,7 +38,7 @@ API keys go in **Settings** (in the TUI) or `cv config key <tabstack|github|gitl
 Every change saves immediately. The header shows `✔ saved`, or why it can't save yet (for example, a new entry still needs its required name).
 
 - **Preview draws the real PDF in the terminal**: full resolution in Kitty, Ghostty, WezTerm and iTerm2 (Kitty graphics or Sixel), Unicode blocks anywhere else. `[ ]` turn pages, `c` cycles themes and `a` accents to try a look, `s` saves it, `t` switches to the plain-text (ATS) view. It re-renders as you edit, using a Chrome kept warm for the session.
-- **Settings** (under SETUP): API keys, which AI writes (and the Ollama model and host), a monthly budget, preview mode, this month's spend, and the doctor's checks (`r` tests connections for free; `T` tests Tabstack, which costs one call).
+- **Settings** (under SETUP): API keys, which AI writes (and the Ollama model and host), a monthly Tabstack budget, preview mode, this month's Tabstack spend, and the doctor's checks (`r` tests connections for free; `T` tests Tabstack, which costs one call).
 - **Press `:` (or `ctrl+p`) and type** to do anything without memorising keys: "add work", "import json", "export", "sort", "scan github", "go to talks"…
 - **`u` undoes any change** (edits, deletes, sorts, imports, merges, even replacing the whole resume); `U` redoes. The status bar shows what `u` will undo.
 - **First run** (no resume yet) opens a welcome screen: import a JSON Resume, start from your GitHub, fill in your details, or explore with sample data.
@@ -99,8 +99,8 @@ Scans your resume for technologies and practices you mention but haven't listed 
 ### Import & refresh sources
 Import from any URL (personal site, talks page, author page, GitHub). Tabstack extracts structured entries; you pick which to merge, with duplicates flagged. Save a URL as a **source** and **Refresh sources** later re-runs it and shows only new entries. That keeps talks and articles up to date.
 
-### Spend and budget
-Writing runs locally on Ollama, so it costs nothing. Tabstack calls are counted and logged in `.cache/spend.json`; its SDK publishes no per-call prices, so Extract and Generate show as *unpriced*, and Research is priced at the documented ~$2 fast rate. Set a monthly cap with `cv config budget 10` or in Settings: a priced call that would exceed it is refused with a clear message. `cv spend` shows the month so far.
+### Tabstack spend and budget
+Tabstack is the only paid service: writing runs locally on Ollama and costs nothing, so the budget only covers Tabstack. Tabstack calls are counted and logged in `.cache/spend.json`; its SDK publishes no per-call prices, so Extract and Generate show as *unpriced*, and Research is priced at the documented ~$2 fast rate. Set a monthly cap with `cv config budget 10` or in Settings: a priced call that would exceed it is refused with a clear message. `cv spend` shows the month so far.
 
 ### AI writing help
 The writing features run on a **local model via [Ollama](https://ollama.com)**: free, and nothing leaves your machine. The default is `qwen3:8b`; change it with `cv config ollama-model <name>` or in Settings, and point at another machine with `cv config ollama-host` (or `OLLAMA_HOST`, in any form Ollama accepts). If Ollama isn't running, or the model isn't pulled, you get a message saying how to fix it; nothing falls back to a cloud model. To use Tabstack `generate` instead, choose it explicitly with `cv config ai tabstack`. Repository write-ups and tailored copy use Tabstack `generate`. Answers are cached by request in `.cache/ai/`, so repeating a request is free. Every feature has the same rule: **any number the model writes must already be in your facts**; anything else is dropped and reported.
@@ -221,7 +221,7 @@ Your data stays out of git: `resume.json`, `variants/` and `applications/` are g
 | `src/repos/` | Repository scan: `types.ts` (shared shapes), `analyze.ts` (deterministic), `summarize.ts` (write-ups + grounding), `index.ts` (orchestration) |
 | `src/forges/` | Collectors: `github.ts`, `gitlab.ts`; accounts from profiles and merging mirrors (`index.ts`) |
 | `src/export/` | Renderers (`html.ts`, `text.ts`), `themes.ts`, `ats.ts`, export pipeline |
-| `src/config.ts`, `src/doctor.ts`, `src/costs.ts` | User config and data folder, setup checks, spend ledger and budget |
+| `src/config.ts`, `src/doctor.ts`, `src/costs.ts` | User config and data folder, setup checks, Tabstack spend ledger and budget |
 | `src/cli.ts` | Entry point: resolves the data folder, then runs a command or the TUI |
 | `src/cli/` | Commands, one file per area (`setup`, `resume`, `apply`, `grow`), dispatched from `index.ts`; options in `context.ts` |
 | `src/tui/` | OpenTUI app (`app.tsx`, `form.tsx`, `views/`); `tui/commands.ts` is the palette's action list |

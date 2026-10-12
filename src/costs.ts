@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { firstIssue, loadConfig } from "./config.ts";
 
-// Spend ledger and budget cap. Writing runs locally on Ollama (free), so only Tabstack is here. Its SDK
+// Tabstack spend ledger and budget cap: the only paid service (writing runs locally on Ollama). Its SDK
 // doesn't publish per-call prices, so Extract/Generate calls are counted, and Research is priced
 // at the SDK-documented fast-mode rate.
 
@@ -15,9 +15,6 @@ const Entry = z.object({
   at: z.string(),
   op: z.string(),
   usd: z.number().optional(),
-  model: z.string().optional(),
-  inputTokens: z.number().optional(),
-  outputTokens: z.number().optional(),
 });
 export type Entry = z.infer<typeof Entry>;
 
@@ -27,7 +24,7 @@ export class LedgerError extends Error {}
 async function readLedger(): Promise<Entry[]> {
   const f = Bun.file(ledgerFile());
   if (!(await f.exists())) return [];
-  const fail = (why: string) => new LedgerError(`Can't read the spend ledger ${ledgerFile()} (${why}). Fix or delete it; paid calls are paused until then.`);
+  const fail = (why: string) => new LedgerError(`Can't read the Tabstack spend ledger ${ledgerFile()} (${why}). Fix or delete it; Tabstack calls are paused until then.`);
   const json = await f.json().catch(() => {
     throw fail("not valid JSON");
   });
@@ -71,12 +68,12 @@ export async function monthSpend(now = new Date()): Promise<MonthSpend> {
 
 export class BudgetError extends Error {}
 
-/** Refuse a priced call that would take this month over the configured cap. */
+/** Refuse a priced Tabstack call that would take this month over the configured cap. */
 export async function checkBudget(estimateUsd: number, what: string) {
   const s = await monthSpend();
   if (s.budget !== undefined && s.usd + estimateUsd > s.budget) {
     throw new BudgetError(
-      `${what} (≈${formatUsd(estimateUsd)}) would exceed your monthly budget: ${formatUsd(s.usd)} of ${formatUsd(s.budget)} used. Raise it in Settings or with \`cv config budget <usd>\`.`,
+      `${what} (≈${formatUsd(estimateUsd)}) would exceed your monthly Tabstack budget: ${formatUsd(s.usd)} of ${formatUsd(s.budget)} used. Raise it in Settings or with \`cv config budget <usd>\`.`,
     );
   }
 }

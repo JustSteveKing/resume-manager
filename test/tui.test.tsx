@@ -462,15 +462,15 @@ describe("TUI", () => {
     const ui = await setup();
     await ui.open("Settings");
     await new Promise((r) => setTimeout(r, 300)); // doctor checks
-    await ui.press("down"); // Monthly budget
-    expect(ui.frame()).toContain("Monthly budget   none");
+    await ui.press("down"); // Tabstack budget
+    expect(ui.frame()).toMatch(/Tabstack budget\s+none/);
     await ui.press("enter");
     await ui.type("12.5");
     await ui.press("enter");
     await new Promise((r) => setTimeout(r, 100));
     expect((await loadConfig()).budget).toEqual({ monthlyUsd: 12.5 });
     await ui.press("up", "down");
-    expect(ui.frame()).toContain("Monthly budget   $12.50");
+    expect(ui.frame()).toMatch(/Tabstack budget\s+\$12\.50/);
     await saveConfig({});
   });
 });

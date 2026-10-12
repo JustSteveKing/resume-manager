@@ -8,7 +8,7 @@ import { CHECK_ICON, runDoctor } from "../doctor.ts";
 import type { Resume } from "../schema.ts";
 import { print } from "./output.ts";
 
-// Setup commands: where your resume lives, keys, budget, and checks.
+// Setup commands: where your resume lives, keys, Tabstack budget, and checks.
 
 export async function cmdInit({ command, values, positionals, env }: CommandContext): Promise<number> {
   const home = resolve(positionals[0] ?? process.cwd());
@@ -56,7 +56,7 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
     if (a === "off") await updateConfig((c) => void delete c.budget);
     else if (a && Number(a) > 0) await updateConfig((c) => void (c.budget = { monthlyUsd: Number(a) }));
     else throw new Error("Usage: cv config budget <usd|off>");
-    print(a === "off" ? "Budget removed" : `Monthly budget: $${Number(a).toFixed(2)}`);
+    print(a === "off" ? "Tabstack budget removed" : `Tabstack budget: $${Number(a).toFixed(2)}/month`);
   } else if (what === "key") {
     if (!["tabstack", "github", "gitlab"].includes(a ?? "") || !b) throw new Error("Usage: cv config key <tabstack|github|gitlab> <value|off>");
     await updateConfig((c) => {

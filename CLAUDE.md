@@ -29,7 +29,7 @@ Use Bun, not Node: `bun <file>`, `bun test`, `bunx`, `bun:sqlite`, `Bun.file` ov
 - **Flow**: `schema.ts` (Zod) → `store.ts` (load/save/prune) → `variants.ts` (`applyVariant` turns a resume + variant into a `ResumeView`, plus auto-fit trims) → `export/` (HTML/text renderers, themes, Puppeteer PDF, ATS text-extraction check).
 - **Entry**: `src/cli.ts` → `cli/index.ts` (`runCommand`) with args, else `tui/index.tsx` (`runTui`).
 - **TUI**: `tui/app.tsx` (layout, nav, command list), `tui/store.tsx` (state, undo/redo, saving), `tui/form.tsx` (generic editor), `tui/views/*` (one per screen).
-- **Paid/AI**: `tabstack.ts` (metered Tabstack client), `ai/index.ts` (`AI` abstraction: local Ollama, or Tabstack generate when chosen), `costs.ts` (spend ledger and budget), `grounding.ts` (`isGrounded`).
+- **Paid/AI**: `tabstack.ts` (metered Tabstack client), `ai/index.ts` (`AI` abstraction: local Ollama, or Tabstack generate when chosen), `costs.ts` (Tabstack spend ledger and budget; Tabstack is the only paid service), `grounding.ts` (`isGrounded`).
 - **Features**: `job.ts` (tailoring, cover letter, research), `keywords.ts`, `lint.ts` + `consistency.ts` (Issues/validate), `evidence.ts`, `importer.ts` + `linkedin.ts` + `sources.ts` (imports and dedupe), `repos/` + `forges/` (GitHub/GitLab scan), `inbox.ts`, `applications.ts`.
 
 ## This project
