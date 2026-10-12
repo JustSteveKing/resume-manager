@@ -172,7 +172,7 @@ export function App(props: { onQuit: () => void; firstRun?: boolean }) {
     { id: "issues", label: "Check for problems", keywords: "validate lint issues", group: "Output", run: () => goTo("issues") },
     { id: "welcome", label: "Getting started", keywords: "welcome help onboarding", group: "App", run: () => goTo("@welcome") },
     { id: "sections", label: showAll ? "Hide empty sections" : "Show all sections", keywords: "awards certificates references volunteer interests", group: "App", run: () => setShowAll((v) => !v) },
-    { id: "settings", label: "Settings and API keys", keywords: "config tabstack anthropic claude github token budget", group: "App", run: () => goTo("settings") },
+    { id: "settings", label: "Settings and API keys", keywords: "config tabstack ollama model github token budget", group: "App", run: () => goTo("settings") },
     { id: "doctor", label: "Check setup (doctor)", keywords: "chrome keys privacy gitignore", group: "App", run: () => goTo("settings") },
     { id: "spend", label: "Spending this month", keywords: "cost budget usage", group: "App", run: () => goTo("settings") },
     { id: "keys", label: "Keyboard shortcuts", keywords: "help", keys: "?", group: "App", run: () => store.setModal({ kind: "help" }) },

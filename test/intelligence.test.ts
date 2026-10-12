@@ -3,7 +3,7 @@ import { mkdir, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { draftBullets, interviewQuestions, rewrite, rolesNeedingWork, templateQuestions } from "../src/ai/coach.ts";
-import { cached, getAI, normalizeOllamaHost, probeOllama } from "../src/ai/index.ts";
+import { cached, getAI, NoAIError, normalizeOllamaHost, probeOllama } from "../src/ai/index.ts";
 import { fakeAI } from "./fixtures.ts";
 import { interviewPrep, prepMarkdown } from "../src/ai/prep.ts";
 import { ensureApplication, followUpsDue, learn, listApplications, setStatus, APPLICATIONS_DIR } from "../src/applications.ts";
@@ -102,11 +102,11 @@ describe("ollama", () => {
     expect(bodies.at(-1).options.num_ctx).toBeGreaterThanOrEqual(8192);
   });
 
-  test("auto refuses to switch to a paid model when the local model isn't pulled", async () => {
+  test("auto says to pull the model when it's missing", async () => {
     await expect(withHost(pulled("llama3.1:8b"), () => getAI(undefined, "auto"))).rejects.toThrow("ollama pull qwen3:8b");
   });
 
-  test("auto refuses to switch to a paid model when Ollama is there but failing", async () => {
+  test("auto reports an Ollama that's there but failing", async () => {
     const host = fakeOllama(() => new Response("busy", { status: 503 }));
     await expect(withHost(host, () => getAI(undefined, "auto"))).rejects.toThrow("isn't responding (HTTP 503)");
   });
@@ -116,11 +116,22 @@ describe("ollama", () => {
     expect(await probeOllama(host, { fresh: true, timeoutMs: 20 })).toEqual({ state: "unresponsive", reason: "timed out" });
   });
 
-  test("auto skips Ollama when it isn't running", async () => {
+  test("without Ollama there's no AI, and nothing falls back to the cloud", async () => {
     // test/setup.ts points OLLAMA_HOST at a closed port.
     expect(await probeOllama(undefined, { fresh: true })).toEqual({ state: "down" });
-    const ai = await getAI(undefined, "auto").catch((e: Error) => e);
-    expect(ai instanceof Error ? ai.message : ai.name).not.toMatch(/^ollama$|isn't pulled|isn't responding/);
+    const old = process.env.TABSTACK_API_KEY;
+    process.env.TABSTACK_API_KEY = "ts-key";
+    try {
+      const resume = { basics: { name: "Ada", url: "https://ada.example" } } as Resume;
+      const err = await getAI(resume, "auto").catch((e: Error) => e);
+      expect(err).toBeInstanceOf(NoAIError);
+      expect((err as Error).message).toContain("Ollama isn't running");
+      // Tabstack only when chosen.
+      expect((await getAI(resume, "tabstack")).name).toBe("tabstack");
+    } finally {
+      if (old === undefined) delete process.env.TABSTACK_API_KEY;
+      else process.env.TABSTACK_API_KEY = old;
+    }
   });
 
   test("OLLAMA_HOST is read the way Ollama reads it", () => {

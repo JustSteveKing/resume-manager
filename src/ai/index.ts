@@ -1,10 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { readdir } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { checkBudget, claudeCost, estimateClaude, record } from "../costs.ts";
 import { CACHE_DIR } from "../paths.ts";
 import type { Resume } from "../schema.ts";
 import { tabstack, toTabstackSchema } from "../tabstack.ts";
@@ -21,13 +16,11 @@ export interface AiRequest<T extends z.ZodType> {
 }
 
 export interface AI {
-  name: "ollama" | "claude" | "tabstack";
-  /** Model that answers, when it isn't the Claude default (part of the cache key). */
+  name: "ollama" | "tabstack";
+  /** Model that answers (part of the cache key). */
   model?: string;
   json<T extends z.ZodType>(req: AiRequest<T>): Promise<z.infer<T>>;
 }
-
-export const MODEL = "claude-opus-5-5";
 
 /** Shared rules for anything that writes resume copy. */
 export const WRITING_RULES = `Rules:
@@ -151,42 +144,7 @@ class OllamaAI implements AI {
   }
 }
 
-// ---------- Claude ----------
-
-class ClaudeAI implements AI {
-  name = "claude" as const;
-  private client = new Anthropic();
-
-  async json<T extends z.ZodType>(req: AiRequest<T>): Promise<z.infer<T>> {
-    await checkBudget(estimateClaude(req.system.length + req.prompt.length), "Claude request");
-    const res = await this.client.beta.messages.parse({
-      model: MODEL,
-      max_tokens: 16000,
-      // Refused requests are re-run on a fallback model chosen by refusal category.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      system: req.system,
-      messages: [{ role: "user", content: req.prompt }],
-      output_config: { effort: "medium", format: betaZodOutputFormat(req.schema) },
-    });
-    await record({
-      service: "claude",
-      op: "json",
-      model: res.model,
-      usd: claudeCost(res.model, res.usage),
-      inputTokens: res.usage.input_tokens,
-      outputTokens: res.usage.output_tokens,
-    });
-    if (res.stop_reason === "refusal") {
-      throw new Error(`Claude declined this request${res.stop_details?.explanation ? `: ${res.stop_details.explanation}` : ""}`);
-    }
-    if (res.stop_reason === "max_tokens") throw new Error("Claude's answer was cut off (max_tokens). Try a shorter input.");
-    if (res.parsed_output == null) throw new Error("Claude returned output that didn't match the expected shape");
-    return res.parsed_output as z.infer<T>;
-  }
-}
-
-// ---------- Tabstack fallback ----------
+// ---------- Tabstack (opt-in) ----------
 
 const TABSTACK_LIMIT = 20_000;
 
@@ -198,7 +156,7 @@ class TabstackAI implements AI {
   async json<T extends z.ZodType>(req: AiRequest<T>): Promise<z.infer<T>> {
     const instructions = `${req.system}\n\nIgnore the fetched page unless it helps; the task is below.\n\n${req.prompt}`;
     if (instructions.length > TABSTACK_LIMIT) {
-      throw new Error(`Request is ${instructions.length} characters; Tabstack allows ${TABSTACK_LIMIT}. Set ANTHROPIC_API_KEY to use Claude instead.`);
+      throw new Error(`Request is ${instructions.length} characters; Tabstack allows ${TABSTACK_LIMIT}. Use Ollama instead (\`cv config ai auto\`).`);
     }
     const res = await tabstack().generate.json({ url: this.contextUrl, instructions, json_schema: toTabstackSchema(req.schema) });
     return req.schema.parse(res);
@@ -213,7 +171,7 @@ export function cached(ai: AI, dir = join(CACHE_DIR, "ai")): AI {
     name: ai.name,
     model: ai.model,
     async json(req) {
-      const key = Bun.hash(JSON.stringify([ai.name, ai.model ?? MODEL, req.system, req.prompt, z.toJSONSchema(req.schema)])).toString(16);
+      const key = Bun.hash(JSON.stringify([ai.name, ai.model ?? "", req.system, req.prompt, z.toJSONSchema(req.schema)])).toString(16);
       const file = Bun.file(join(dir, `${key}.json`));
       if (await file.exists()) {
         const hit = req.schema.safeParse(await file.json());
@@ -226,45 +184,32 @@ export function cached(ai: AI, dir = join(CACHE_DIR, "ai")): AI {
   };
 }
 
-/** Anthropic credentials: an env key/token, or an `ant auth login` profile on disk. */
-async function hasClaudeCredentials(): Promise<boolean> {
-  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) return true;
-  try {
-    return (await readdir(join(homedir(), ".config", "anthropic"))).length > 0;
-  } catch {
-    return false;
-  }
-}
-
 /** No AI is set up at all (as opposed to one that's set up but failing). Callers with a fallback catch only this. */
 export class NoAIError extends Error {}
 
-export type AiChoice = "auto" | "ollama" | "claude" | "tabstack";
+export type AiChoice = "auto" | "ollama" | "tabstack";
 
 /**
- * Pick the writing model: a local Ollama model when Ollama is running (free, private), else Claude
- * when credentials exist, else Tabstack generate (needs TABSTACK_API_KEY and a URL in basics:
- * website or GitHub profile). RESUME_AI forces one.
+ * Pick the writing model. Writing stays local: a model on Ollama, unless Tabstack generate is chosen
+ * explicitly (needs TABSTACK_API_KEY and a URL in basics: website or GitHub profile). Nothing falls back
+ * to a cloud model on its own. RESUME_AI forces one; unknown values (an old "claude") mean auto.
  */
 export async function getAI(r?: Resume, choice: AiChoice = (process.env.RESUME_AI as AiChoice) || "auto"): Promise<AI> {
-  if (choice === "ollama") return cached(new OllamaAI());
-  if (choice === "auto") {
-    const ollama = await probeOllama();
-    // Ollama is there but slow, failing or missing the model: say so rather than quietly switching to a paid model.
-    if (ollama.state === "unresponsive") {
-      throw new Error(`Ollama at ${ollamaHost()} isn't responding (${ollama.reason}). Try again, or choose another AI in Settings.`);
-    }
-    if (ollama.state === "running") {
-      if (!hasModel(ollama.models, ollamaModel())) {
-        throw new Error(`Ollama is running but ${ollamaModel()} isn't pulled. Run \`ollama pull ${ollamaModel()}\`, set another model in Settings, or choose Claude.`);
-      }
-      return cached(new OllamaAI());
-    }
+  if (choice === "tabstack") {
+    const url = r?.basics.url ?? r?.basics.profiles?.find((p) => p.url)?.url;
+    if (process.env.TABSTACK_API_KEY && url) return cached(new TabstackAI(url));
+    throw new NoAIError("Tabstack is chosen for writing but needs TABSTACK_API_KEY and a website in Basics. Or use Ollama: `cv config ai auto`.");
   }
-  if (choice === "claude" || (choice === "auto" && (await hasClaudeCredentials()))) return cached(new ClaudeAI());
-  const url = r?.basics.url ?? r?.basics.profiles?.find((p) => p.url)?.url;
-  if ((choice === "tabstack" || choice === "auto") && process.env.TABSTACK_API_KEY && url) return cached(new TabstackAI(url));
-  throw new NoAIError(
-    "No AI configured. Start Ollama (`ollama serve`) for a local model, set ANTHROPIC_API_KEY (or run `ant auth login`) for Claude, or TABSTACK_API_KEY plus a website in Basics for Tabstack.",
-  );
+  if (choice === "ollama") return cached(new OllamaAI());
+  const ollama = await probeOllama();
+  if (ollama.state === "down") {
+    throw new NoAIError(`Ollama isn't running at ${ollamaHost()}. Install it from https://ollama.com and run \`ollama serve\` (then \`ollama pull ${ollamaModel()}\`).`);
+  }
+  if (ollama.state === "unresponsive") {
+    throw new Error(`Ollama at ${ollamaHost()} isn't responding (${ollama.reason}). Try again, or restart Ollama.`);
+  }
+  if (!hasModel(ollama.models, ollamaModel())) {
+    throw new Error(`Ollama is running but ${ollamaModel()} isn't pulled. Run \`ollama pull ${ollamaModel()}\`, or set another model in Settings.`);
+  }
+  return cached(new OllamaAI());
 }

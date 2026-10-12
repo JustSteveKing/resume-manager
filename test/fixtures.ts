@@ -6,7 +6,7 @@ import type { AI, AiRequest } from "../src/ai/index.ts";
 export function fakeAI(...responses: unknown[]): AI & { prompts: string[] } {
   const prompts: string[] = [];
   return {
-    name: "claude",
+    name: "ollama",
     prompts,
     async json<T extends z.ZodType>(req: AiRequest<T>) {
       prompts.push(req.prompt);

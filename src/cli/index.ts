@@ -17,11 +17,11 @@ Setup:
   init [folder]                   Remember where your resume lives, so \`cv\` works from any folder
   where                           Show which folder and files are in use
   doctor [--live] [--tabstack]    Check setup; --live tests keys (free), --tabstack also tests Tabstack (paid call)
-  config ai <auto|ollama|claude|tabstack>
+  config ai <auto|ollama|tabstack>
   config ollama-model <name|off>  Local model for writing features (default qwen3:8b)
   config ollama-host <url|off>    Ollama server (default http://localhost:11434)
   config budget <usd|off>         Monthly cap on priced AI calls
-  config key <tabstack|anthropic|github|gitlab> <value|off>
+  config key <tabstack|github|gitlab> <value|off>
   config gitlab-host <url|off>    Self-hosted GitLab (default gitlab.com)
   spend                           AI and Tabstack spend this month
 
@@ -65,9 +65,8 @@ Commands:
   inbox [--yes]                   Check sources and GitHub for new achievements; --yes accepts all
   help                            Show this help
 
-AI features (rewrite, prep, interview drafting) use a local Ollama model when Ollama is running,
-else Claude when ANTHROPIC_API_KEY or an \`ant auth login\` profile is present, else Tabstack.
-Force one with RESUME_AI=ollama|claude|tabstack.
+AI features (rewrite, prep, interview drafting) run locally on Ollama (default qwen3:8b).
+Tabstack generate is used only if you choose it: cv config ai tabstack (or RESUME_AI=tabstack).
 `;
 
 const COMMANDS: Record<string, (ctx: CommandContext) => Promise<number>> = {

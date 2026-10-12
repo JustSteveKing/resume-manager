@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type Tabstack from "@tabstack/sdk";
 import { testRender } from "@opentui/react/test-utils";
 import { applyEnvironment, CONFIG_FILE, loadConfig, maskKey, parseDotenv, resolveHome, saveConfig } from "../src/config.ts";
-import { BudgetError, checkBudget, claudeCost, estimateClaude, formatUsd, monthSpend, record } from "../src/costs.ts";
+import { BudgetError, checkBudget, formatUsd, monthSpend, record } from "../src/costs.ts";
 import { runDoctor } from "../src/doctor.ts";
 import { metered } from "../src/tabstack.ts";
 import { closePreviewRenderer, pagePng, renderPreviewPdf } from "../src/tui/preview-render.ts";
@@ -58,19 +58,20 @@ describe("config", () => {
 });
 
 describe("costs", () => {
-  test("prices Claude usage per model, estimates a call", () => {
-    expect(claudeCost("claude-opus-5-5", { input_tokens: 1_000_000, output_tokens: 100_000 })).toBeCloseTo(6);
-    expect(claudeCost("claude-sonnet-5-5", { input_tokens: 1_000_000 })).toBeCloseTo(2);
-    expect(claudeCost("mystery-model", { input_tokens: 1 })).toBeUndefined();
-    expect(estimateClaude(4000)).toBeGreaterThan(0.04);
-    expect(estimateClaude(4000)).toBeLessThan(0.1);
+  test("formats amounts", () => {
     expect(formatUsd(0.034)).toBe("3¢");
     expect(formatUsd(2)).toBe("$2.00");
   });
 
+  test("an old config naming Claude still loads, as auto", async () => {
+    await Bun.write(CONFIG_FILE, JSON.stringify({ home: "/tmp/cv", ai: "claude", keys: { anthropic: "sk-ant-x", github: "gh" } }));
+    expect(await loadConfig()).toEqual({ home: "/tmp/cv", keys: { github: "gh" } });
+    await saveConfig({});
+  });
+
   test("ledger totals the month and the budget refuses overspend", async () => {
     const before = (await monthSpend()).usd;
-    await record({ service: "claude", op: "json", usd: 0.5 });
+    await record({ service: "tabstack", op: "agent.research", usd: 0.5 });
     await record({ service: "tabstack", op: "extract.json" });
     const s = await monthSpend();
     expect(s.usd).toBeCloseTo(before + 0.5);

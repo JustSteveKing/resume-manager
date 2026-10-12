@@ -7,8 +7,8 @@ import type { Intent } from "../commands.ts";
 import { useKeys, useStore } from "../store.tsx";
 import { C, fit, Hints, Line, Pane, split, windowStart } from "../ui.tsx";
 
-type KeyName = "tabstack" | "anthropic" | "github" | "gitlab";
-const ENV: Record<KeyName, string> = { tabstack: "TABSTACK_API_KEY", anthropic: "ANTHROPIC_API_KEY", github: "GITHUB_TOKEN", gitlab: "GITLAB_TOKEN" };
+type KeyName = "tabstack" | "github" | "gitlab";
+const ENV: Record<KeyName, string> = { tabstack: "TABSTACK_API_KEY", github: "GITHUB_TOKEN", gitlab: "GITLAB_TOKEN" };
 const STATUS_COLOR = { ok: C.ok, warn: C.warn, error: C.err, info: C.dim } as const;
 
 interface Row {
@@ -87,13 +87,12 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
     {
       id: "ai",
       label: "Writing AI",
-      value: config.ai ?? "auto (Ollama if running, else Claude, else Tabstack)",
+      value: config.ai ?? "auto (Ollama)",
       edit: async () => {
         const v = await store.choose("Which model writes?", [
-          { value: "auto" as const, label: "auto: Ollama if running, else Claude, else Tabstack" },
+          { value: "auto" as const, label: "auto: Ollama, checking it's running and the model is pulled" },
           { value: "ollama" as const, label: "ollama: local model, free and private" },
-          { value: "claude" as const, label: "claude" },
-          { value: "tabstack" as const, label: "tabstack" },
+          { value: "tabstack" as const, label: "tabstack: Tabstack generate (cloud, needs a key and a website)" },
         ]);
         if (!v?.[0]) return;
         await save((c) => void (c.ai = v[0]), `Writing AI: ${v[0]}`);
@@ -117,7 +116,6 @@ export function SettingsView(props: { active: boolean; width: number; height: nu
       },
     },
     keyRow("tabstack", "Tabstack key"),
-    keyRow("anthropic", "Anthropic key"),
     keyRow("github", "GitHub token"),
     keyRow("gitlab", "GitLab token"),
     settingRow({

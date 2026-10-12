@@ -10,7 +10,6 @@
     "typescript": "7.0.2"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.132.0",
     "@napi-rs/canvas": "1.0.10",
     "@opentui/core": "0.5.15",
     "@opentui/react": "0.5.15",

@@ -2,29 +2,18 @@ import { join } from "node:path";
 import { z } from "zod";
 import { loadConfig } from "./config.ts";
 
-// Spend ledger and budget cap. Claude calls are priced exactly from token usage; Tabstack's SDK
+// Spend ledger and budget cap. Writing runs locally on Ollama (free), so only Tabstack is here. Its SDK
 // doesn't publish per-call prices, so Extract/Generate calls are counted, and Research is priced
 // at the SDK-documented fast-mode rate.
 
 const cacheDir = () => process.env.RESUME_CACHE_DIR ?? ".cache";
 const ledgerFile = () => join(cacheDir(), "spend.json");
 
-/** $ per million tokens (Anthropic first-party rates). Fallbacks can serve a different model, so price by the model that ran. */
-export const CLAUDE_PRICES: Record<string, { input: number; output: number; cacheRead: number }> = {
-  "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2 },
-  "claude-opus-5": { input: 5, output: 25, cacheRead: 0.5 },
-  "claude-opus-4-8": { input: 5, output: 25, cacheRead: 0.5 },
-  "claude-opus-4-7": { input: 5, output: 25, cacheRead: 0.5 },
-  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
-  "claude-sonnet-5": { input: 2, output: 10, cacheRead: 0.2 },
-  "claude-fable-5-1": { input: 10, output: 50, cacheRead: 0.25 },
-  "claude-haiku-4-5": { input: 1, output: 5, cacheRead: 0.1 },
-};
-
 export const TABSTACK_RESEARCH_FAST_USD = 2;
 
 const Entry = z.object({
   at: z.string(),
+  /** "claude": entries from before writing moved to Ollama; still counted in the month's spend. */
   service: z.enum(["claude", "tabstack"]),
   op: z.string(),
   usd: z.number().optional(),
@@ -52,21 +41,9 @@ export function record(entry: Omit<Entry, "at">): Promise<void> {
   return writing;
 }
 
-export function claudeCost(model: string, usage: { input_tokens?: number | null; output_tokens?: number | null; cache_read_input_tokens?: number | null }): number | undefined {
-  const p = CLAUDE_PRICES[model.replace(/-\d{8}$/, "")];
-  if (!p) return undefined;
-  return ((usage.input_tokens ?? 0) * p.input + (usage.output_tokens ?? 0) * p.output + (usage.cache_read_input_tokens ?? 0) * p.cacheRead) / 1e6;
-}
-
-/** Rough pre-call estimate for one Claude writing request: ~4 chars per token in, ~2.5k tokens out (incl. thinking). */
-export function estimateClaude(promptChars: number, model = "claude-opus-5-5"): number {
-  return claudeCost(model, { input_tokens: Math.ceil(promptChars / 4) + 400, output_tokens: 2500 }) ?? 0;
-}
-
 export interface MonthSpend {
   month: string;
   usd: number;
-  claudeCalls: number;
   tabstackCalls: number;
   /** Calls with no published price (Tabstack Extract/Generate). */
   unpriced: number;
@@ -80,7 +57,6 @@ export async function monthSpend(now = new Date()): Promise<MonthSpend> {
   return {
     month,
     usd: entries.reduce((n, e) => n + (e.usd ?? 0), 0),
-    claudeCalls: entries.filter((e) => e.service === "claude").length,
     tabstackCalls: entries.filter((e) => e.service === "tabstack").length,
     unpriced: entries.filter((e) => e.usd === undefined).length,
     budget,
@@ -104,7 +80,7 @@ export const formatUsd = (n: number) => (n < 0.01 ? `${Math.max(0, Math.round(n 
 export function describeSpend(s: MonthSpend): string {
   const parts = [`${formatUsd(s.usd)} this month (${s.month})`];
   if (s.budget !== undefined) parts.push(`budget ${formatUsd(s.budget)}`);
-  parts.push(`${s.claudeCalls} Claude call(s), ${s.tabstackCalls} Tabstack call(s)`);
+  parts.push(`${s.tabstackCalls} Tabstack call(s)`);
   if (s.unpriced) parts.push(`${s.unpriced} unpriced`);
   return parts.join(" · ");
 }

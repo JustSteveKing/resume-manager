@@ -10,12 +10,13 @@ Build, maintain, tailor and export a [JSON Resume](https://jsonresume.org/schema
 bun install
 bunx puppeteer browsers install chrome   # Bun skips postinstall, so fetch Chrome for PDF export
 bun link                                 # installs the `cv` command
+ollama pull qwen3:8b                     # local model for the writing features (https://ollama.com)
 cv init ~/Documents/resume               # where your resume.json, variants and applications live
 cv                                       # full-screen TUI, from any folder
 cv doctor --live                         # check everything is set up (free checks)
 ```
 
-API keys go in **Settings** (in the TUI) or `cv config key <tabstack|anthropic|github> <key>`. They're stored in `~/.config/resume-manager/config.json` (owner-only), never in the repo. A `.env` in your resume folder, or exported environment variables, also work and take precedence.
+API keys go in **Settings** (in the TUI) or `cv config key <tabstack|github|gitlab> <key>`. They're stored in `~/.config/resume-manager/config.json` (owner-only), never in the repo. A `.env` in your resume folder, or exported environment variables, also work and take precedence.
 
 **Which folder is used:** `RESUME_HOME` if set, else the current folder if it has a `resume.json`, else the folder from `cv init`. `cv where` shows the paths in use. Inside the repo, `bun start` still works as before.
 
@@ -99,10 +100,10 @@ Scans your resume for technologies and practices you mention but haven't listed 
 Import from any URL (personal site, talks page, author page, GitHub). Tabstack extracts structured entries; you pick which to merge, with duplicates flagged. Save a URL as a **source** and **Refresh sources** later re-runs it and shows only new entries. That keeps talks and articles up to date.
 
 ### Spend and budget
-Every Claude call is priced from its actual token usage (by the model that ran, since fallbacks can switch models) and logged in `.cache/spend.json`. Tabstack calls are counted; its SDK publishes no per-call prices, so Extract and Generate show as *unpriced*, and Research is priced at the documented ~$2 fast rate. Set a monthly cap with `cv config budget 10` or in Settings: a priced call that would exceed it is refused with a clear message. `cv spend` shows the month so far.
+Writing runs locally on Ollama, so it costs nothing. Tabstack calls are counted and logged in `.cache/spend.json`; its SDK publishes no per-call prices, so Extract and Generate show as *unpriced*, and Research is priced at the documented ~$2 fast rate. Set a monthly cap with `cv config budget 10` or in Settings: a priced call that would exceed it is refused with a clear message. `cv spend` shows the month so far.
 
 ### AI writing help
-The writing features use a **local model via [Ollama](https://ollama.com)** when it's running (free, and nothing leaves your machine; default `qwen3:8b`, change it with `cv config ollama-model <name>` or in Settings). Without Ollama they use **Claude** (`claude-opus-5-5`) when `ANTHROPIC_API_KEY` or an `ant auth login` profile is present, then Tabstack `generate`. Force one with `cv config ai <ollama|claude|tabstack>` or `RESUME_AI`. If Ollama is running but the model isn't pulled, you get an error telling you to `ollama pull` it; it won't quietly switch to a paid model. Repository write-ups and tailored copy still use Tabstack `generate`. Answers are cached by request in `.cache/ai/`, so repeating a request is free. Every feature has the same rule: **any number the model writes must already be in your facts**; anything else is dropped and reported.
+The writing features run on a **local model via [Ollama](https://ollama.com)**: free, and nothing leaves your machine. The default is `qwen3:8b`; change it with `cv config ollama-model <name>` or in Settings, and point at another machine with `cv config ollama-host` (or `OLLAMA_HOST`, in any form Ollama accepts). If Ollama isn't running, or the model isn't pulled, you get a message saying how to fix it; nothing falls back to a cloud model. To use Tabstack `generate` instead, choose it explicitly with `cv config ai tabstack`. Repository write-ups and tailored copy use Tabstack `generate`. Answers are cached by request in `.cache/ai/`, so repeating a request is free. Every feature has the same rule: **any number the model writes must already be in your facts**; anything else is dropped and reported.
 
 - **Writing coach:** press `w` on a summary, title or highlight (or `bun start rewrite "…"`): shorter, result-first, and "did X, measured by Y, by doing Z" rewrites. Pick one or keep the original; `u` undoes.
 - **Coach (achievement interviewer):** roles missing numbers or with long summaries are flagged. Answer 2-3 questions per role and your answers become quantified bullets to tick and add. Without an AI key it uses template questions and offers your answers as draft highlights.

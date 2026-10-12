@@ -13,13 +13,14 @@ export const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 export const Config = z.object({
   /** Folder holding resume.json, variants/, applications/, dist/… */
   home: z.string().optional(),
-  ai: z.enum(["auto", "ollama", "claude", "tabstack"]).optional(),
+  // .catch: an old config saying "claude" falls back to auto rather than failing the whole file.
+  ai: z.enum(["auto", "ollama", "tabstack"]).optional().catch(undefined),
   /** Local model via Ollama (default http://localhost:11434, qwen3:8b). */
   ollama: z.object({ host: z.string().optional(), model: z.string().optional() }).optional(),
   keys: z
-    .object({ tabstack: z.string().optional(), anthropic: z.string().optional(), github: z.string().optional(), gitlab: z.string().optional() })
+    .object({ tabstack: z.string().optional(), github: z.string().optional(), gitlab: z.string().optional() })
     .optional(),
-  /** Monthly cap on priced AI spend (Claude, Tabstack Research), in US dollars. */
+  /** Monthly cap on priced Tabstack spend (Research), in US dollars. */
   budget: z.object({ monthlyUsd: z.number().positive().optional() }).optional(),
   /** Self-hosted GitLab, e.g. "https://gitlab.example.com" (default gitlab.com). */
   gitlab: z.object({ host: z.string().optional() }).optional(),
@@ -95,7 +96,6 @@ export async function applyEnvironment(cwd = process.cwd()): Promise<{ home: str
     if (await env.exists()) for (const [k, v] of Object.entries(parseDotenv(await env.text()))) setDefault(k, v);
   }
   setDefault("TABSTACK_API_KEY", config.keys?.tabstack);
-  setDefault("ANTHROPIC_API_KEY", config.keys?.anthropic);
   setDefault("GITHUB_TOKEN", config.keys?.github);
   setDefault("GITLAB_TOKEN", config.keys?.gitlab);
   setDefault("GITLAB_HOST", config.gitlab?.host);

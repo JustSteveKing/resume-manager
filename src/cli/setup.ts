@@ -49,7 +49,7 @@ export async function cmdDoctor({ command, values, positionals, env }: CommandCo
 export async function cmdConfig({ command, values, positionals, env }: CommandContext): Promise<number> {
   const [what, a, b] = positionals;
   if (what === "ai") {
-    if (!["auto", "ollama", "claude", "tabstack"].includes(a ?? "")) throw new Error("Usage: cv config ai <auto|ollama|claude|tabstack>");
+    if (!["auto", "ollama", "tabstack"].includes(a ?? "")) throw new Error("Usage: cv config ai <auto|ollama|tabstack>");
     await updateConfig((c) => void (c.ai = a as "auto"));
     print(`AI: ${a}`);
   } else if (what === "budget") {
@@ -58,7 +58,7 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
     else throw new Error("Usage: cv config budget <usd|off>");
     print(a === "off" ? "Budget removed" : `Monthly budget: $${Number(a).toFixed(2)}`);
   } else if (what === "key") {
-    if (!["tabstack", "anthropic", "github", "gitlab"].includes(a ?? "") || !b) throw new Error("Usage: cv config key <tabstack|anthropic|github|gitlab> <value|off>");
+    if (!["tabstack", "github", "gitlab"].includes(a ?? "") || !b) throw new Error("Usage: cv config key <tabstack|github|gitlab> <value|off>");
     await updateConfig((c) => {
       c.keys ??= {};
       if (b === "off") delete c.keys[a as "tabstack"];
@@ -86,7 +86,7 @@ export async function cmdConfig({ command, values, positionals, env }: CommandCo
     print(`home     ${c.home ?? "—"}\nai       ${c.ai ?? "auto"}\nbudget   ${c.budget?.monthlyUsd ? `$${c.budget.monthlyUsd}` : "none"}`);
     print(`gitlab   ${c.gitlab?.host ?? "gitlab.com"}`);
     print(`ollama   ${c.ollama?.model ?? OLLAMA_MODEL} at ${normalizeOllamaHost(c.ollama?.host)}`);
-    for (const k of ["tabstack", "anthropic", "github", "gitlab"] as const) print(`key      ${k.padEnd(10)} ${maskKey(c.keys?.[k])}`);
+    for (const k of ["tabstack", "github", "gitlab"] as const) print(`key      ${k.padEnd(10)} ${maskKey(c.keys?.[k])}`);
   }
   return 0;
 }

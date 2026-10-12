@@ -1,4 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { access, constants, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import puppeteer from "puppeteer";
@@ -25,7 +24,7 @@ export interface Check {
 }
 
 export interface DoctorOptions {
-  /** Make live calls: free ones always (Claude token count, GitHub rate limit). */
+  /** Make live calls: free ones always (GitHub and GitLab rate limits). */
   live?: boolean;
   /** Also test Tabstack, which has no free endpoint (uses one Extract call). */
   liveTabstack?: boolean;
@@ -53,17 +52,6 @@ export function guessImageSupport(): string {
   if (t.includes("kitty") || t.includes("ghostty") || t.includes("wezterm")) return "kitty";
   if (t.includes("iterm")) return "sixel";
   return "blocks";
-}
-
-/** Which AI the writing features will use without Claude, mirroring getAI's order. */
-function writer(ollamaReady: boolean, ollamaPresent: boolean, tabstack: boolean): string {
-  const forced = process.env.RESUME_AI;
-  if (forced === "ollama") return ollamaReady ? "Ollama" : "Ollama (not ready, see above)";
-  if (forced === "tabstack") return tabstack ? "Tabstack" : "nothing (Tabstack is forced but has no key)";
-  if (forced === "claude") return "nothing (Claude is forced)";
-  // In auto, an Ollama that's present but not ready blocks the fallbacks (see getAI).
-  if (ollamaPresent) return ollamaReady ? "Ollama" : "nothing until Ollama is fixed (see above)";
-  return tabstack ? "Tabstack" : "nothing";
 }
 
 export async function runDoctor(opts: DoctorOptions = {}): Promise<Check[]> {
@@ -126,29 +114,17 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<Check[]> {
     }
   } else add({ id: "tabstack", label: "Tabstack", status: "ok", detail: `Key ${maskKey(ts)} (not tested: testing uses a paid call)` });
 
-  // Ollama (local, so the live check is free and always runs)
+  // Ollama: the writing model (local, so the live check is free and always runs)
   const ollama = await ollamaProbe;
   const model = ollamaModel();
-  const ollamaReady = ollama.state === "running" && hasModel(ollama.models, model);
-  if (ollama.state === "down") add({ id: "ollama", label: "Ollama", status: "info", detail: `Not running at ${ollamaHost()}`, fix: "Install Ollama and run `ollama serve` for free, local writing help" });
-  else if (ollama.state === "unresponsive") add({ id: "ollama", label: "Ollama", status: "warn", detail: `Not responding at ${ollamaHost()} (${ollama.reason})`, fix: "Restart Ollama, or check the host in Settings" });
-  else if (!ollamaReady) add({ id: "ollama", label: "Ollama", status: "warn", detail: `Running, but ${model} isn't pulled`, fix: `Run \`ollama pull ${model}\`, or pick another model in Settings` });
-  else add({ id: "ollama", label: "Ollama", status: "ok", detail: `${model} ready${process.env.RESUME_AI && process.env.RESUME_AI !== "ollama" ? ` (writing uses ${process.env.RESUME_AI})` : ""}` });
-
-  // Claude
-  const anthropicKey = process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN;
-  const profile = await exists(join(process.env.HOME ?? "", ".config", "anthropic"));
-  if (!anthropicKey && !profile) {
-    add({ id: "claude", label: "Claude", status: "info", detail: `Not set up: writing features use ${writer(ollamaReady, ollama.state !== "down", !!ts)}`, fix: "Add an Anthropic key in Settings, or run `ant auth login`" });
-  } else if (opts.live) {
-    try {
-      // Token counting is free, so it's a no-cost key check.
-      await new Anthropic().messages.countTokens({ model: "claude-opus-5-5", messages: [{ role: "user", content: "ping" }] });
-      add({ id: "claude", label: "Claude", status: "ok", detail: `${anthropicKey ? `Key ${maskKey(anthropicKey)}` : "ant profile"} works` });
-    } catch (e) {
-      add({ id: "claude", label: "Claude", status: "error", detail: `Credentials failed: ${e instanceof Error ? e.message : e}`, fix: "Check the key in Settings" });
-    }
-  } else add({ id: "claude", label: "Claude", status: "ok", detail: anthropicKey ? `Key ${maskKey(anthropicKey)}` : "ant profile found" });
+  // Writing off isn't an error when Tabstack is chosen for it instead.
+  const viaTabstack = process.env.RESUME_AI === "tabstack";
+  const note = viaTabstack ? " (writing uses Tabstack)" : "";
+  const off = viaTabstack ? "info" : "warn";
+  if (ollama.state === "down") add({ id: "ollama", label: "Ollama", status: off, detail: `Not running at ${ollamaHost()}: writing features are off${note}`, fix: `Install from https://ollama.com, run \`ollama serve\` and \`ollama pull ${model}\`` });
+  else if (ollama.state === "unresponsive") add({ id: "ollama", label: "Ollama", status: off, detail: `Not responding at ${ollamaHost()} (${ollama.reason})${note}`, fix: "Restart Ollama, or check the host in Settings" });
+  else if (!hasModel(ollama.models, model)) add({ id: "ollama", label: "Ollama", status: off, detail: `Running, but ${model} isn't pulled${note}`, fix: `Run \`ollama pull ${model}\`, or pick another model in Settings` });
+  else add({ id: "ollama", label: "Ollama", status: "ok", detail: `${model} ready${note}` });
 
   // GitHub
   const token = await githubToken();
