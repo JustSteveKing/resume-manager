@@ -63,12 +63,6 @@ describe("costs", () => {
     expect(formatUsd(2)).toBe("$2.00");
   });
 
-  test("an old config naming Claude still loads, as auto", async () => {
-    await Bun.write(CONFIG_FILE, JSON.stringify({ home: "/tmp/cv", ai: "claude", keys: { anthropic: "sk-ant-x", github: "gh" } }));
-    expect(await loadConfig()).toEqual({ home: "/tmp/cv", keys: { github: "gh" } });
-    await saveConfig({});
-  });
-
   test("ledger totals the month and the budget refuses overspend", async () => {
     const before = (await monthSpend()).usd;
     await record({ service: "tabstack", op: "agent.research", usd: 0.5 });

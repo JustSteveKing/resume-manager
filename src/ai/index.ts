@@ -192,7 +192,7 @@ export type AiChoice = "auto" | "ollama" | "tabstack";
 /**
  * Pick the writing model. Writing stays local: a model on Ollama, unless Tabstack generate is chosen
  * explicitly (needs TABSTACK_API_KEY and a URL in basics: website or GitHub profile). Nothing falls back
- * to a cloud model on its own. RESUME_AI forces one; unknown values (an old "claude") mean auto.
+ * to a cloud model on its own. RESUME_AI forces one.
  */
 export async function getAI(r?: Resume, choice: AiChoice = (process.env.RESUME_AI as AiChoice) || "auto"): Promise<AI> {
   if (choice === "tabstack") {

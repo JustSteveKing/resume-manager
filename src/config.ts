@@ -13,8 +13,7 @@ export const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 export const Config = z.object({
   /** Folder holding resume.json, variants/, applications/, dist/… */
   home: z.string().optional(),
-  // .catch: an old config saying "claude" falls back to auto rather than failing the whole file.
-  ai: z.enum(["auto", "ollama", "tabstack"]).optional().catch(undefined),
+  ai: z.enum(["auto", "ollama", "tabstack"]).optional(),
   /** Local model via Ollama (default http://localhost:11434, qwen3:8b). */
   ollama: z.object({ host: z.string().optional(), model: z.string().optional() }).optional(),
   keys: z

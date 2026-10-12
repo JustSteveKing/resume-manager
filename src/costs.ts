@@ -13,8 +13,7 @@ export const TABSTACK_RESEARCH_FAST_USD = 2;
 
 const Entry = z.object({
   at: z.string(),
-  /** "claude": entries from before writing moved to Ollama; still counted in the month's spend. */
-  service: z.enum(["claude", "tabstack"]),
+  service: z.literal("tabstack"),
   op: z.string(),
   usd: z.number().optional(),
   model: z.string().optional(),
