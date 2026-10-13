@@ -6,6 +6,7 @@ import { accountsFromResume } from "../src/forges/index.ts";
 import { scanRepos, scanReport } from "../src/repos/index.ts";
 import { groundSkills, isGrounded, numbersIn, toProjects, toSkills } from "../src/repos/summarize.ts";
 import { Resume } from "../src/schema.ts";
+import { groundTailored } from "../src/job.ts";
 
 const NOW = Date.parse("2026-10-01T00:00:00Z");
 
@@ -219,4 +220,20 @@ describe("scanRepos (offline, GitHub)", () => {
     expect(report).toContain("## Summary\n\nPHP engineer building API SDKs.");
     expect(report).toContain("| Saloon | 1 | dependency |");
   });
+});
+
+test("groundTailored drops invented numbers and credentials from tailored writing", () => {
+  const facts = "Senior Engineer at Acme. Led a team of 6. Role: join a team of 12.";
+  const g = groundTailored(
+    {
+      headline: "Award-winning API engineer",
+      summary: "API engineer who led a team of 6. Cut latency by 40%.",
+      coverLetter: "I led a team of 6 at Acme.\n\nI grew revenue 300%. I am certified in Kubernetes.\n\nI'd enjoy joining your team of 12.",
+    },
+    facts,
+    "Senior Engineer",
+  );
+  expect(g.headline).toBe("Senior Engineer");
+  expect(g.summary).toBe("API engineer who led a team of 6.");
+  expect(g.coverLetter).toBe("I led a team of 6 at Acme.\n\nI'd enjoy joining your team of 12.");
 });

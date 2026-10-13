@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { APPLICATIONS_DIR, ensureApplication } from "./applications.ts";
 import { renderText } from "./export/text.ts";
+import { isGrounded } from "./grounding.ts";
 import { coverage } from "./keywords.ts";
 import type { Resume } from "./schema.ts";
 import { extractObject, tabstack, toTabstackSchema, type Effort } from "./tabstack.ts";
@@ -79,7 +80,27 @@ CANDIDATE RESUME:
     instructions: preamble + resumeText,
     json_schema: toTabstackSchema(Tailored),
   });
-  return Tailored.parse(res);
+  // The posting's own figures ("a team of 12") are facts too, so they're allowed alongside the resume's.
+  return groundTailored(Tailored.parse(res), `${resumeText}\n${JSON.stringify(job)}`, r.basics.label ?? job.title ?? "");
+}
+
+const sentences = (text: string) => text.split(/(?<=[.!?])\s+/).filter((s) => s.trim());
+
+/**
+ * Drop sentences whose numbers or credentials aren't in the facts. The cover letter keeps its paragraphs;
+ * one that loses every sentence goes. An ungrounded headline falls back to `fallbackHeadline`.
+ */
+export function groundTailored(t: Tailored, facts: string, fallbackHeadline: string): Tailored {
+  const keep = (text: string) => sentences(text).filter((s) => isGrounded(s, facts)).join(" ");
+  return {
+    headline: isGrounded(t.headline, facts) ? t.headline : fallbackHeadline,
+    summary: keep(t.summary),
+    coverLetter: t.coverLetter
+      .split(/\n\s*\n/)
+      .map(keep)
+      .filter(Boolean)
+      .join("\n\n"),
+  };
 }
 
 /** Tabstack Research on the company. Costs real money (~$2 per fast run), so callers must confirm first. */
